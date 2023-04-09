@@ -42,6 +42,7 @@ float getVoltage();
 void requestADC(uint16_t readmode);
 uint16_t readRegister(uint8_t reg);
 bool writeRegister(uint8_t reg, uint16_t value);
+static uint16_t lastGain;
 
 bool isConnected()
 {
@@ -49,7 +50,7 @@ bool isConnected()
     return (Wire.endTransmission() == 0);
 }
 
-bool dataReady = false;
+static volatile bool dataReady = false;
 
 void readyHandler() {
     dataReady = true;
@@ -57,7 +58,6 @@ void readyHandler() {
 
 bool beginADS()
 {
-    Wire.begin();
     if (! isConnected()) return false;
     writeRegister(ADS1X15_REG_LOW_THRESHOLD, 0);
     writeRegister(ADS1X15_REG_HIGH_THRESHOLD, 0x8000);//1 << 15
@@ -66,8 +66,6 @@ bool beginADS()
     return true;
 }
 
-
-float maxVoltage;
 
 float getMaxVoltage(uint16_t gain) {
     switch (gain) {
@@ -91,13 +89,14 @@ uint16_t getPinMask(uint8_t pin) {
 }
 
 bool requestValue(uint8_t pin, uint16_t gain) {
-    maxVoltage = getMaxVoltage(gain);
+    float maxVoltage = getMaxVoltage(gain);
     uint16_t pinMask = getPinMask(pin);
     if (maxVoltage == 0 || pinMask == 0) {
         return false;
     }
     requestADC(pinMask | gain);
     dataReady = false;
+    lastGain = gain;
     return true;
 }
 
@@ -113,28 +112,40 @@ bool getValueIfExists(float* valuePtr)
     return true;
 }
 
-bool isReady()
-{
+bool isReady() {
     uint16_t val = readRegister(ADS1X15_REG_CONFIG);
     return ((val & ADS1X15_OS_NOT_BUSY) > 0);
 }
 
-float getVoltage()
-{
+float getVoltage() {
     int16_t value = readRegister(ADS1X15_REG_CONVERT);
+    return convertToVoltage(value, lastGain);
+}
 
+bool getRelativeValueIfExists(uint16_t* valuePtr) {
+    if (dataReady == false) {
+        return false;
+    }
+    if (isReady() == false) {
+        return false;
+    }
+    *valuePtr = readRegister(ADS1X15_REG_CONVERT);
+    return true;
+}
+
+float convertToVoltage(uint16_t value, uint16_t gain) {
     if (value == 0) return 0;
 
-    float volts = maxVoltage;
+    float volts = getMaxVoltage(gain);
     if (volts < 0) return 0;
 
     volts *= value;
-    volts /= 32767;
+    volts /= MAX_READ_VALUE;
     return volts;
+
 }
 
-void requestADC(uint16_t mask)
-{
+void requestADC(uint16_t mask) {
 //    1<<15 | //OS : Start a single conversion (15)
 //    1 << 8 | // Mode Single-shot mode or power-down state (8)
 //    0b010 << 5 //Data rate 010 : 32 SPS (7:5)

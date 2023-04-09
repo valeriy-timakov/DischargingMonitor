@@ -10,7 +10,7 @@ void LedBlink::init() {
     digitalWrite(pin, HIGH);
 }
 
-void LedBlink::idle() {
+void LedBlink::loop() {
     if (ledOn) {
         if (millis() - ledTime > onTimeMs) {
             digitalWrite(pin, LOW);

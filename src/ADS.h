@@ -34,11 +34,16 @@
 #define ADS1X15_PGA_0_512V          0x0800
 #define ADS1X15_PGA_0_256V          0x0A00
 
+#define MAX_READ_VALUE 32767
+
 
 void resetADS();
 bool beginADS();
 bool requestValue(uint8_t pin, uint16_t gain);
 bool getValueIfExists(float* valuePtr);
+float getMaxVoltage(uint16_t gain);
+bool getRelativeValueIfExists(uint16_t* valuePtr);
+float convertToVoltage(uint16_t value, uint16_t gain);
 
 
 

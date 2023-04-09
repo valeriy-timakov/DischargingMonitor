@@ -3,6 +3,7 @@
 //
 
 #include "Communicator.h"
+#include "utils.h"
 
 
 uint8_t Communicator::readCommand() {
@@ -77,17 +78,41 @@ Instruction Communicator::getInstruction() {
         return ERROR_NOT_READY;
     }
     if (curCmdBuffPos >= CMD_ID_SIZE + CMD_INSTR_SIZE) {
-        if (cmdBuff[CMD_ID_SIZE]  == 'r') {
-            if (cmdBuff[CMD_ID_SIZE + 1] == 't') {
+        char instrFirst = cmdBuff[CMD_ID_SIZE];
+        char instrSecond = cmdBuff[CMD_ID_SIZE + 1];
+        if (instrFirst  == 'r') {
+            if (instrSecond == 't') {
                 return GET_TIME;
-            } else if (cmdBuff[CMD_ID_SIZE + 1] == 'v') {
+            } else if (instrSecond == 'v') {
                 return GET_VOLTAGE;
-            } else if (cmdBuff[CMD_ID_SIZE + 1] == 'c') {
+            } else if (instrSecond == 'c') {
                 return GET_CURRENT;
+            } else if (instrSecond == 'i') {
+                return GET_INFORM_INTERVAL;
+            } else if (instrSecond == 'l') {
+                return GET_LAST_READ_TIMESTAMP;
+            } else if (instrSecond == 'r') {
+                return GET_READ_INTERVAL;
+            } else if (instrSecond == 'f') {
+                return GET_INFORM_FORMAT;
+            } else if (instrSecond == 'n') {
+                return GET_INFORM_COEFFICIENTS;
+            } else if (instrSecond == 'o') {
+                return GET_INFORM_ORDER;
             }
-        } else if (cmdBuff[CMD_ID_SIZE] == 's') {
-            if (cmdBuff[CMD_ID_SIZE + 1] == 't') {
+        } else if (instrFirst == 's') {
+            if (instrSecond == 't') {
                 return SYNC_TIME;
+            } else if (instrSecond == 'i') {
+                return SET_INFORM_INTERVAL;
+            } else if (instrSecond == 'r') {
+                return SET_READ_INTERVAL;
+            } else if (instrSecond == 'f') {
+                return SET_INFORM_FORMAT;
+            }
+        } else if (instrFirst == 'e') {
+            if (instrSecond == 'r') {
+                return PERFORM_READ;
             }
         }
     }
@@ -102,6 +127,29 @@ size_t Communicator::getData(char **res) {
     }
     return false;
 }
+
+
+void Communicator::processIntValue(void (*processor)(uint32_t)) {
+    char *data;
+    size_t size = getData(&data);
+    ErrorCode code;
+    if (size > 0) {
+        long tmpValue = atoi(data, size);
+        if (tmpValue == -1) {
+            code = E_REQUEST_DATA_NO_VALUE;
+        }
+        processor((uint32_t)tmpValue);
+        code = OK;
+    } else {
+        code = E_REQUEST_DATA_NOT_DIGITAL_VALUE;
+    }
+    if (code == OK) {
+        sendSuccess();
+    } else {
+        sendError(code, message(code));
+    }
+}
+
 /*
 void Communicator::send(Answer answer, Str &data, Str &commandId) {
     Serial.print("(");
@@ -110,61 +158,79 @@ void Communicator::send(Answer answer, Str &data, Str &commandId) {
     }
     Serial.write(commandId.data, commandId.len);
     switch (answer) {
-        case CURRENT:
+        case A_CURRENT:
             Serial.print("c");
             break;
-        case VOLTAGE:
+        case A_VOLTAGE:
             Serial.print("v");
             break;
-        case TIME:
+        case A_TIME:
             Serial.print("t");
             break;
     }
-    Serial.write(data.data, data.len);
+    Serial.SPIwrite(data.data, data.len);
     Serial.print(")");
 }
 
 void Communicator::send(Answer answer, Str &data) {
     uint8_t idSize = min(curCmdBuffPos, CMD_ID_SIZE);
     Str id = {cmdBuff, idSize};
-    send(answer, data, id);
+    sendAnswer(answer, data, id);
 }
 */
-void Communicator::send(Answer answer, void (*writer)(Stream &stream)) {
-    send(answer, writer, NULL);
-}
 
 void Communicator::sendSuccess() {
-    send(SUCCESS, NULL);
+    sendAnswer(A_SUCCESS, NULL);
 }
 
-void Communicator::sendError(const char *message) {
-    send(ERROR, NULL, message);
+ErrorCode errorCode;
+const char *errorMessage;
+
+void writeError(Stream &stream) {
+    stream.print(';');
+    stream.print(errorCode);
+    stream.print(';');
+    stream.print(errorMessage);
 }
 
-void Communicator::send(Answer answer, void (*writer)(Stream &), const char *data) {
+void Communicator::sendError(ErrorCode code, const char *message) {
+    errorCode = code;
+    errorMessage = message;
+    sendAnswer(ERROR, writeError);
+}
+
+void Communicator::sendAnswer(Answer answer, void (*writer)(Stream &)) {
     Serial.print("(");
-    if (answer == ERROR) {
-        Serial.print("Error");
-    }
-    Serial.write(cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE)) + 1;
-    switch (answer) {
-        case CURRENT:
-            Serial.print("c");
-            break;
-        case VOLTAGE:
-            Serial.print("v");
-            break;
-        case TIME:
-            Serial.print("t");
-            break;
-    }
+    Serial.write(cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
+    Serial.print(answerChars[answer]);
     if (writer != NULL) {
         writer(Serial);
     }
-    if (data != NULL) {
-        Serial.print(data);
-    }
     Serial.print(")");
+}
 
+bool Communicator::sendData(Answer answer, void (*writer)(Stream &stream)) {
+    sendAnswer(answer, writer);
+    return true;
+}
+
+bool Communicator::sendBinary(const uint8_t* data, uint16_t bytesCoutn) {
+    uint16_t hash = 0;
+    uint16_t i = 0;
+    for (; i < bytesCoutn - 1; i += 2) {
+        hash += data[i + 1] + ( data[i] << 8 );
+    }
+    if (i < bytesCoutn) {
+        hash += data[i] << 8;
+    }
+    Serial.write(1);
+    Serial.write(1);
+    Serial.write(1);
+    Serial.write(bytesCoutn);
+    Serial.write(hash);
+    Serial.write(data, bytesCoutn);
+    Serial.write(4);
+    Serial.write(4);
+    Serial.write(4);
+    return true;
 }
