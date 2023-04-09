@@ -6,7 +6,16 @@
 #include "utils.h"
 
 
-uint8_t Communicator::readCommand() {
+
+ErrorCode errorCode;
+
+void Communicator::loop() {
+    while (readCommand()) {
+        processInstruction();
+    }
+}
+
+bool Communicator::readCommand() {
     commandParsed = false;
     while (Serial.available()) {
         char received = Serial.read();
@@ -26,15 +35,7 @@ uint8_t Communicator::readCommand() {
                     startDetected = false;
                     if (curCmdBuffPos > 0) {
                         commandParsed = true;
-                        Instruction instruction = getInstruction();
-                        if (instruction == ERROR_UNRECOGIZED) {
-                            commandParsed = false;
-                            Serial.print("(Error command not recognized! Got: ");
-                            Serial.write(cmdBuff, curCmdBuffPos);
-                            Serial.print(")");
-                        } else {
-                            return curCmdBuffPos;
-                        }
+                        return true;
                     } else {
                         Serial.print("(Error command empty!)");
                     }
@@ -62,9 +63,10 @@ uint8_t Communicator::readCommand() {
             }
         }
     }
-    return 0;
+    return false;
 }
 
+/*
 bool Communicator::getCommandId(char **res) {
     if (commandParsed) {
         *res = cmdBuff;
@@ -72,51 +74,130 @@ bool Communicator::getCommandId(char **res) {
     }
     return 0;
 }
+*/
 
-Instruction Communicator::getInstruction() {
-    if (!commandParsed) {
-        return ERROR_NOT_READY;
-    }
+const Data * _tmpData;
+float (*deserializer)(const Data *);
+
+void writeData(Communicator *self, Stream &stream) {
+    stream.print(deserializer(_tmpData), 3);
+    stream.print(',');
+    stream.print(_tmpData->timestamp);
+}
+
+void Communicator::processInstruction() {
+    /**
+     * Commands
+     * First char:
+     * r - read
+     * s - set
+     * e - execute
+     * Second char (for read/set):
+     * t - current timestamp
+     * v - last measure voltage with timestamp, V/ms
+     * c - last measure current with timestamp, A/ms
+     * i - inform interval, ms
+     * l - last measure timestamp, ms
+     * r - measurements interval, ms
+     * f - inform format, text/binary
+     * n - inform data coefficients
+     * o - inform values order
+     * Second char (for execute):
+     * r - force measurement
+     * i - force inform
+     * p - mark last inform package successfully proceeded
+     * e - inform of last inform package proceeding error
+     * No data results:
+     * S - success
+     * E - error (with error code)
+     * Errors:
+     *   OK:0 - "Ok result, no error.";
+     *   E_REQUEST_DATA_NO_VALUE:1 - No value
+     *   E_REQUEST_DATA_NOT_DIGITAL_VALUE:2 - Not digital value
+     *   E_SENSOR_READ_TIME_OUT:3 - Time out waiting answer from ADC!
+     *   E_SENSOR_READ_REQUEST_FAILED:4 - Error requesting measurement!
+     *   E_SENSOR_READ_ALREADY_IN_PROGRESS:5 - Measurement is already in progress!
+     *   E_INFORM_NO_DATA_TO_SEND:6 - All available data was sent by inform calls or no data pages were saved!
+     *   E_INFORM_PACKAGE_ALREADY_SENT:7 - Package already sent and not proceeded yet!
+     *   E_INSTRUCTION_UNRECOGIZED:8 - No command bound for this instruction!
+     *   E_READ_NO_DATA_TO_SEND:9 - No one measurement was performed, so not data available for sent!
+     *   E_NO_PACKAGE_WAS_SENT:10 - No inform package was sent to inform about its proceeding!
+     *   E_UNDEFINED_CODE:11 - "Code for undefined errors";
+     */
+    bool proceeded = true;
     if (curCmdBuffPos >= CMD_ID_SIZE + CMD_INSTR_SIZE) {
         char instrFirst = cmdBuff[CMD_ID_SIZE];
         char instrSecond = cmdBuff[CMD_ID_SIZE + 1];
         if (instrFirst  == 'r') {
             if (instrSecond == 't') {
-                return GET_TIME;
-            } else if (instrSecond == 'v') {
-                return GET_VOLTAGE;
-            } else if (instrSecond == 'c') {
-                return GET_CURRENT;
+                sendAnswer('t', [](Communicator *self, Stream &stream) { self->reader.writeTimeStamp(stream); });
+            } else if (instrSecond == 'v' || instrSecond == 'c') {
+                const Data& tmpData = reader.getLastData();
+                if (tmpData.available()) {
+                    _tmpData = &tmpData;
+                    deserializer = instrSecond == 'v' ? reader.deserializeVoltage : reader.deserializeCurrent;
+                    sendAnswer('v', writeData);
+                } else {
+                    sendError(E_READ_NO_DATA_TO_SEND);
+                }
             } else if (instrSecond == 'i') {
-                return GET_INFORM_INTERVAL;
+                sendAnswer('i', [](Communicator *self, Stream &stream) { self->informer.writeInformInterval(stream); });
             } else if (instrSecond == 'l') {
-                return GET_LAST_READ_TIMESTAMP;
+                sendAnswer('l', [](Communicator *self, Stream &stream) { self->reader.writeLastReadTimeStamp(stream); });
             } else if (instrSecond == 'r') {
-                return GET_READ_INTERVAL;
+                sendAnswer('r', [](Communicator *self, Stream &stream) { self->reader.writeReadInterval(stream); });
             } else if (instrSecond == 'f') {
-                return GET_INFORM_FORMAT;
+                sendAnswer('f', [](Communicator *self, Stream &stream) { self->informer.writeInformFormat(stream); });
             } else if (instrSecond == 'n') {
-                return GET_INFORM_COEFFICIENTS;
+                sendAnswer('n', [](Communicator *self, Stream &stream) { self->informer.writeInformCoefficients(stream); });
             } else if (instrSecond == 'o') {
-                return GET_INFORM_ORDER;
+                sendAnswer('o', [](Communicator *self, Stream &stream) { self->informer.writeInformOrder(stream); });
+            } else {
+                proceeded = false;
             }
         } else if (instrFirst == 's') {
             if (instrSecond == 't') {
-                return SYNC_TIME;
+                processIntValue([](Communicator *self, uint32_t value) { return self->reader.syncTime(value); });
             } else if (instrSecond == 'i') {
-                return SET_INFORM_INTERVAL;
+                processIntValue([](Communicator *self, uint32_t value) { return self->informer.setInformInterval(value); });
             } else if (instrSecond == 'r') {
-                return SET_READ_INTERVAL;
+                processIntValue([](Communicator *self, uint32_t value) { return self->reader.setReadInterval(value); });
             } else if (instrSecond == 'f') {
-                return SET_INFORM_FORMAT;
+                processIntValue([](Communicator *self, uint32_t value) { return self->informer.setInformFormat(value); });
+            } else {
+                proceeded = false;
             }
         } else if (instrFirst == 'e') {
+            ErrorCode result;
             if (instrSecond == 'r') {
-                return PERFORM_READ;
+                result = reader.performRead();
+            } else if (instrSecond == 'i') {
+                result = informer.inform(*this);
+            } else if (instrSecond == 'p') {
+                result = informer.proceeded();
+            } else if (instrSecond == 'e') {
+                result = informer.proceedError();
+            } else {
+                proceeded = false;
+            }
+            if (proceeded) {
+                if (result == OK) {
+                    sendSuccess();
+                } else {
+                    sendError(result);
+                }
             }
         }
     }
-    return ERROR_UNRECOGIZED;
+    if (!proceeded) {
+        sendError(E_INSTRUCTION_UNRECOGIZED);
+    }
+}
+
+void Communicator::sendErrorIfNotSuccess(ErrorCode code) {
+    if (code != OK) {
+        sendError(code);
+    }
 }
 
 size_t Communicator::getData(char **res) {
@@ -128,109 +209,75 @@ size_t Communicator::getData(char **res) {
     return false;
 }
 
-
-void Communicator::processIntValue(void (*processor)(uint32_t)) {
+void Communicator::processIntValue(ErrorCode (*processor)(Communicator *self, uint32_t)) {
     char *data;
     size_t size = getData(&data);
     ErrorCode code;
     if (size > 0) {
         long tmpValue = atoi(data, size);
         if (tmpValue == -1) {
-            code = E_REQUEST_DATA_NO_VALUE;
+            code = E_REQUEST_DATA_NOT_DIGITAL_VALUE;
+        } else {
+            code = processor(this, (uint32_t) tmpValue);
         }
-        processor((uint32_t)tmpValue);
-        code = OK;
     } else {
-        code = E_REQUEST_DATA_NOT_DIGITAL_VALUE;
+        code = E_REQUEST_DATA_NO_VALUE;
     }
     if (code == OK) {
         sendSuccess();
     } else {
-        sendError(code, message(code));
+        sendError(code);
     }
 }
 
-/*
-void Communicator::send(Answer answer, Str &data, Str &commandId) {
+void Communicator::sendSuccess() {
+    sendAnswer('S', NULL);
+}
+
+void Communicator::sendError(ErrorCode code) {
+    errorCode = code;
+    sendAnswer('E', [] (Communicator *self, Stream &stream) {
+        stream.print(errorCode);
+    });
+}
+
+void Communicator::sendAnswer(char answerCodeChar, void (*writer)(Communicator *self, Stream &stream)) {
     Serial.print("(");
-    if (answer == ERROR) {
-        Serial.print("Error");
+    Serial.write(cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
+    Serial.print(answerCodeChar);
+    if (writer != NULL) {
+        writer(this, Serial);
     }
-    Serial.write(commandId.data, commandId.len);
-    switch (answer) {
-        case A_CURRENT:
-            Serial.print("c");
-            break;
-        case A_VOLTAGE:
-            Serial.print("v");
-            break;
-        case A_TIME:
-            Serial.print("t");
-            break;
-    }
-    Serial.SPIwrite(data.data, data.len);
     Serial.print(")");
 }
 
-void Communicator::send(Answer answer, Str &data) {
-    uint8_t idSize = min(curCmdBuffPos, CMD_ID_SIZE);
-    Str id = {cmdBuff, idSize};
-    sendAnswer(answer, data, id);
-}
-*/
-
-void Communicator::sendSuccess() {
-    sendAnswer(A_SUCCESS, NULL);
-}
-
-ErrorCode errorCode;
-const char *errorMessage;
-
-void writeError(Stream &stream) {
-    stream.print(';');
-    stream.print(errorCode);
-    stream.print(';');
-    stream.print(errorMessage);
-}
-
-void Communicator::sendError(ErrorCode code, const char *message) {
-    errorCode = code;
-    errorMessage = message;
-    sendAnswer(ERROR, writeError);
-}
-
-void Communicator::sendAnswer(Answer answer, void (*writer)(Stream &)) {
+void Communicator::sendData(char answerCodeChar, void (*writer)(Stream &stream)) {
     Serial.print("(");
     Serial.write(cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
-    Serial.print(answerChars[answer]);
+    Serial.print(answerCodeChar);
     if (writer != NULL) {
         writer(Serial);
     }
     Serial.print(")");
 }
 
-bool Communicator::sendData(Answer answer, void (*writer)(Stream &stream)) {
-    sendAnswer(answer, writer);
-    return true;
-}
-
-bool Communicator::sendBinary(const uint8_t* data, uint16_t bytesCoutn) {
+void Communicator::sendBinary(const uint8_t* data, uint16_t bytesCount) {
     uint16_t hash = 0;
     uint16_t i = 0;
-    for (; i < bytesCoutn - 1; i += 2) {
+    for (; i < bytesCount - 1; i += 2) {
         hash += data[i + 1] + ( data[i] << 8 );
     }
-    if (i < bytesCoutn) {
+    if (i < bytesCount) {
         hash += data[i] << 8;
     }
-    Serial.write(1);
-    Serial.write(1);
-    Serial.write(1);
-    Serial.write(bytesCoutn);
+    Serial.write(0);
+    Serial.write(0);
+    Serial.write(0);
+    Serial.write(bytesCount);
     Serial.write(hash);
-    Serial.write(data, bytesCoutn);
-    Serial.write(4);
-    Serial.write(4);
-    Serial.write(4);
-    return true;
+    Serial.write(data, bytesCount);
+    Serial.write(0);
+    Serial.write(0);
+    Serial.write(0);
+    Serial.write(1);
 }

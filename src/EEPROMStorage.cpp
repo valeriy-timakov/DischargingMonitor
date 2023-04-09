@@ -43,7 +43,7 @@ void EEPROMStorage::loop() {
 void EEPROMStorage::add(Data &data) {
     saveBuffer[currPosition] = data;
     currPosition++;
-    Serial.print("Dac:");
+    Serial.print("+");
     Serial.println(currPosition);
 }
 
@@ -51,17 +51,13 @@ const Data& EEPROMStorage::getLast() {
     if (currPosition > 0) {
         return saveBuffer[currPosition - 1];
     } else {
-        return saveBuffer[0];
+        return UN_AVAILABLE_DATA;
     }
 }
 
 void EEPROMStorage::enumerate(void (*consume)(Data &)) {
-    Serial.print("Es::e gBS=");
-    Serial.println(getBufferSize());
     uint8_t count = getBufferSize() / sizeof (Data);
     for (uint16_t i = 0; i < count; i++) {
-        Serial.print("i=");
-        Serial.println(i);
         consume(((Data*)this->getBuffer())[i] );
     }
 }
@@ -94,28 +90,26 @@ void inc(uint8_t &value, bool &overflow, boolean nextOverflowValue) {
 bool EEPROMStorage::checkData() {
     bool result = EEPROM.checkData(nextPageToSave * PAGE_BUFFER_SIZE_BYTES, saveBuffer, PAGE_BUFFER_SIZE_BYTES);
     if (result) {
-        Serial.println("C-ok");
-        Serial.print("tinPTS=");
-        Serial.print(nextPageToSave);
+        Serial.println("wOk");
         inc(nextPageToSave, eepromOverflow, true);
         if (nextPageToSave == nextPageToRead) {
             inc(nextPageToRead, eepromOverflow, false);
         }
-        Serial.print("ES::chD nPT=");
+        Serial.print("cD:");
         Serial.print(nextPageToSave);
         Serial.print("/");
-        Serial.print(eepromOverflow ? " t " : " f");
-        Serial.print("/");
         Serial.println(nextPageToRead );
+        Serial.print("/");
+        Serial.print(eepromOverflow ? " t " : " f");
     }
     return result;
 }
 
 bool EEPROMStorage::prepareData() {
-    Serial.print("pD: nPTR=");
-    Serial.print(nextPageToRead);
-    Serial.print("/");
+    Serial.print("pD:");
     Serial.print(nextPageToSave);
+    Serial.print("/");
+    Serial.print(nextPageToRead);
     Serial.print("/");
     Serial.println(eepromOverflow? "y": "n");
     if (nextPageToRead < nextPageToSave || eepromOverflow) {
@@ -127,10 +121,10 @@ bool EEPROMStorage::prepareData() {
 
 void EEPROMStorage::dataProcessed() {
     inc(nextPageToRead, eepromOverflow, false);
-    Serial.print("dP:nPTR=");
-    Serial.print(nextPageToRead);
-    Serial.print("/");
+    Serial.print("dP:");
     Serial.print(nextPageToSave);
+    Serial.print("/");
+    Serial.print(nextPageToRead);
     Serial.print("/");
     Serial.println(eepromOverflow);
 }

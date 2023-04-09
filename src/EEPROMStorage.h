@@ -9,7 +9,6 @@
 #include "Arduino.h"
 #include "data.h"
 #include "EEPROM25LC1024.h"
-#include "AbstractStorage.h"
 
 
 
@@ -18,9 +17,9 @@ class EEPROMStorage {
 
 private:
     EEPROM25LC1024 EEPROM;
+    uint8_t saveBufferSize;
 
     static const uint8_t  SAVE_BUFFER_CAPACITY = 40;
-    uint8_t saveBufferSize = 20;
     Data saveBuffer[SAVE_BUFFER_CAPACITY];
     uint8_t currPosition = 0;
     uint8_t writeTryCount = 0;
@@ -43,7 +42,7 @@ public:
 
 
     static const uint16_t PAGES_COUNT = 512;
-    EEPROMStorage(uint8_t csPin) : saveBufferSize(PAGE_BUFFER_SIZE_BYTES / sizeof (Data)), EEPROM(EEPROM25LC1024(csPin)) {}
+    EEPROMStorage(uint8_t csPin) : EEPROM(EEPROM25LC1024(csPin)), saveBufferSize(PAGE_BUFFER_SIZE_BYTES / sizeof (Data)) {}
     void init();
     const uint8_t *getBuffer();
     uint16_t getBufferSize();

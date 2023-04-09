@@ -7,7 +7,6 @@
 #ifndef ATTINYTEST_READ_H
 #define ATTINYTEST_READ_H
 
-#include "Communicator.h"
 #include "EEPROMStorage.h"
 
 
@@ -23,14 +22,21 @@ public:
     Reader(EEPROMStorage &storage): storage(storage) {}
     void init();
     void loop();
-    void processInstruction(Instruction instruction, Communicator &communicator);
-    static float deserializeMilli(uint16_t relativeValue, ReadMode mode);
     const Data& getLastData();
+    void writeReadInterval(Stream &stream);
+    ErrorCode setReadInterval(uint32_t value);
+    void writeLastReadTimeStamp(Stream &stream);
+    ErrorCode syncTime(uint32_t value);
+    void writeTimeStamp(Stream &stream);
+    ErrorCode performRead();
+
+    static float getCoefficient(ReadMode mode);
+    static float deserializeCurrent(const Data *data);
+    static float deserializeVoltage(const Data *data);
 private:
     EEPROMStorage &storage;
 
-    static float deserializeCurrent(Data &data);
-    static float deserializeVoltage(Data &data);
+    static float deserializeMilli(uint16_t relativeValue, ReadMode mode);
 
 };
 
