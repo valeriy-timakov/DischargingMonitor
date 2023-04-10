@@ -3,6 +3,7 @@
 //
 
 #include "utils.h"
+#include "MemoryFree.h"
 
 
 
@@ -60,4 +61,10 @@ void debugArr(byte* arr, uint16_t size) {
         Serial.print(' ');
     }
     Serial.println(']');
+}
+
+
+void logMem() {
+    Serial.print("fm=");
+    Serial.println(freeMemory());
 }

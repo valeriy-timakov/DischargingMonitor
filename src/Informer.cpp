@@ -33,24 +33,31 @@ void writeInform(Stream &stream) {
 }
 
 void Informer::loop(Sender &communicator) {
-
     if (informInterval > 0 && (millis() - lastInformTime) >= informInterval) {
         Serial.println("Tti");
+        delay(300);
         inform(communicator);
         Serial.println("Nmdl");
         lastInformTime = millis();
     }
-
 }
 
 ErrorCode Informer::inform(Sender &communicator) {
+    Serial.println("Informer::inform");
+    delay(300);
     if (packetSent) {
+        Serial.println("packetSent");
+        delay(300);
         return E_INFORM_PACKAGE_ALREADY_SENT;
     }
     if (storage.prepareData()) {
         if (informFormat == IF_BINARY) {
+            Serial.println("ib");
+            delay(300);
             communicator.sendBinary(storage.getBuffer(), storage.getBufferSize());
         } else {
+            Serial.println("it");
+            delay(300);
             communicator.sendData('i', writeInform);
         }
         packetSent = true;

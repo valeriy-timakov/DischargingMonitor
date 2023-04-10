@@ -14,5 +14,7 @@ void shift(T *data, uint8_t last, uint8_t size);
 
 class utils {};
 
+void logMem();
+
 
 #endif //UPS_UTILS_H

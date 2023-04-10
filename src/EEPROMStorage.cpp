@@ -4,8 +4,8 @@
 
 #include "EEPROMStorage.h"
 #include "Log.h"
+#include "utils.h"
 
-uint8_t someMyVar = 12;
 
 const uint8_t MAX_CHECK_FAIL_COUNT = 3;
 const uint8_t MAX_WRITE_FAIL_COUNT = 5;
@@ -45,6 +45,7 @@ void EEPROMStorage::add(Data &data) {
     currPosition++;
     Serial.print("+");
     Serial.println(currPosition);
+    logMem();
 }
 
 const Data& EEPROMStorage::getLast() {
@@ -100,7 +101,7 @@ bool EEPROMStorage::checkData() {
         Serial.print("/");
         Serial.println(nextPageToRead );
         Serial.print("/");
-        Serial.print(eepromOverflow ? " t " : " f");
+        Serial.println(eepromOverflow? "y": "n");
     }
     return result;
 }
@@ -112,6 +113,8 @@ bool EEPROMStorage::prepareData() {
     Serial.print(nextPageToRead);
     Serial.print("/");
     Serial.println(eepromOverflow? "y": "n");
+    Serial.println((uint32_t)this);
+    delay(300);
     if (nextPageToRead < nextPageToSave || eepromOverflow) {
         EEPROM.readData(nextPageToRead * PAGE_BUFFER_SIZE_BYTES, pageBuffer, PAGE_BUFFER_SIZE_BYTES);
         return true;
@@ -126,6 +129,6 @@ void EEPROMStorage::dataProcessed() {
     Serial.print("/");
     Serial.print(nextPageToRead);
     Serial.print("/");
-    Serial.println(eepromOverflow);
+    Serial.println(eepromOverflow? "y": "n");
 }
 

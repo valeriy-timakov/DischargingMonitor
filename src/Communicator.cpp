@@ -158,12 +158,17 @@ void Communicator::processInstruction() {
         } else if (instrFirst == 's') {
             if (instrSecond == 't') {
                 processIntValue([](Communicator *self, uint32_t value) { return self->reader.syncTime(value); });
+                logMem();
             } else if (instrSecond == 'i') {
+                logMem();
                 processIntValue([](Communicator *self, uint32_t value) { return self->informer.setInformInterval(value); });
+                logMem();
             } else if (instrSecond == 'r') {
                 processIntValue([](Communicator *self, uint32_t value) { return self->reader.setReadInterval(value); });
+                logMem();
             } else if (instrSecond == 'f') {
                 processIntValue([](Communicator *self, uint32_t value) { return self->informer.setInformFormat(value); });
+                logMem();
             } else {
                 proceeded = false;
             }
@@ -171,12 +176,16 @@ void Communicator::processInstruction() {
             ErrorCode result;
             if (instrSecond == 'r') {
                 result = reader.performRead();
+                logMem();
             } else if (instrSecond == 'i') {
                 result = informer.inform(*this);
+                logMem();
             } else if (instrSecond == 'p') {
                 result = informer.proceeded();
+                logMem();
             } else if (instrSecond == 'e') {
                 result = informer.proceedError();
+                logMem();
             } else {
                 proceeded = false;
             }
