@@ -21,13 +21,9 @@ void setup() {
     Wire.begin();
     Serial.print("Starting...");
     //tk.init();
-    logMem();
     led.init();
-    logMem();
     storage.init();
-    logMem();
     reader.init();
-    logMem();
     Serial.println(" started!");
 }
 
@@ -36,6 +32,6 @@ void loop() {
     led.loop();
     reader.loop();
     storage.loop();
-    informer.loop(communicator);
+    informer.loop();
     communicator.loop();
 }

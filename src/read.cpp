@@ -69,7 +69,7 @@ void Reader::loop() {
             }
             modeRequested = false;
         } else if (millis() - lastRead > READ_TIME_OUT) {
-            Log::error(E_SENSOR_READ_TIME_OUT, "Read value time out");
+            Log::error(E_SENSOR_READ_TIME_OUT);
             modeRequested = false;
         }
     } else {
@@ -85,7 +85,7 @@ void Reader::loop() {
                 currData.timestamp = getTimeStamp();
                 modeRequested = true;
             } else {
-                Log::error(E_SENSOR_READ_REQUEST_FAILED, "Value request failed");
+                Log::error(E_SENSOR_READ_REQUEST_FAILED);
             }
         }
     }

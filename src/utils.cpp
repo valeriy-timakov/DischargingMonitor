@@ -62,9 +62,3 @@ void debugArr(byte* arr, uint16_t size) {
     }
     Serial.println(']');
 }
-
-
-void logMem() {
-    Serial.print("fm=");
-    Serial.println(freeMemory());
-}

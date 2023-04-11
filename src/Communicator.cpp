@@ -158,17 +158,12 @@ void Communicator::processInstruction() {
         } else if (instrFirst == 's') {
             if (instrSecond == 't') {
                 processIntValue([](Communicator *self, uint32_t value) { return self->reader.syncTime(value); });
-                logMem();
             } else if (instrSecond == 'i') {
-                logMem();
                 processIntValue([](Communicator *self, uint32_t value) { return self->informer.setInformInterval(value); });
-                logMem();
             } else if (instrSecond == 'r') {
                 processIntValue([](Communicator *self, uint32_t value) { return self->reader.setReadInterval(value); });
-                logMem();
             } else if (instrSecond == 'f') {
                 processIntValue([](Communicator *self, uint32_t value) { return self->informer.setInformFormat(value); });
-                logMem();
             } else {
                 proceeded = false;
             }
@@ -176,16 +171,12 @@ void Communicator::processInstruction() {
             ErrorCode result;
             if (instrSecond == 'r') {
                 result = reader.performRead();
-                logMem();
             } else if (instrSecond == 'i') {
-                result = informer.inform(*this);
-                logMem();
+                result = informer.inform();
             } else if (instrSecond == 'p') {
                 result = informer.proceeded();
-                logMem();
             } else if (instrSecond == 'e') {
                 result = informer.proceedError();
-                logMem();
             } else {
                 proceeded = false;
             }
@@ -200,12 +191,6 @@ void Communicator::processInstruction() {
     }
     if (!proceeded) {
         sendError(E_INSTRUCTION_UNRECOGIZED);
-    }
-}
-
-void Communicator::sendErrorIfNotSuccess(ErrorCode code) {
-    if (code != OK) {
-        sendError(code);
     }
 }
 
@@ -260,33 +245,3 @@ void Communicator::sendAnswer(char answerCodeChar, void (*writer)(Communicator *
     Serial.print(")");
 }
 
-void Communicator::sendData(char answerCodeChar, void (*writer)(Stream &stream)) {
-    Serial.print("(");
-    Serial.write(cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
-    Serial.print(answerCodeChar);
-    if (writer != NULL) {
-        writer(Serial);
-    }
-    Serial.print(")");
-}
-
-void Communicator::sendBinary(const uint8_t* data, uint16_t bytesCount) {
-    uint16_t hash = 0;
-    uint16_t i = 0;
-    for (; i < bytesCount - 1; i += 2) {
-        hash += data[i + 1] + ( data[i] << 8 );
-    }
-    if (i < bytesCount) {
-        hash += data[i] << 8;
-    }
-    Serial.write(0);
-    Serial.write(0);
-    Serial.write(0);
-    Serial.write(bytesCount);
-    Serial.write(hash);
-    Serial.write(data, bytesCount);
-    Serial.write(0);
-    Serial.write(0);
-    Serial.write(0);
-    Serial.write(1);
-}

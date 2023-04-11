@@ -6,7 +6,6 @@
 #define UPS_INFORMER_H
 
 #include "Arduino.h"
-#include "Sender.h"
 #include "EEPROMStorage.h"
 
 
@@ -23,8 +22,8 @@ public:
     Informer(EEPROMStorage &storage) : storage(storage) {
         pStorage = &this->storage;
     }
-    void loop(Sender &communicator);
-    ErrorCode inform(Sender &communicator);
+    void loop();
+    ErrorCode inform();
     ErrorCode proceeded();
     ErrorCode proceedError();
     ErrorCode setInformInterval(uint32_t value);

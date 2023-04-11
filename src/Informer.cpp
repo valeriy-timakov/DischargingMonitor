@@ -32,17 +32,17 @@ void writeInform(Stream &stream) {
     pStorage->enumerate(write);
 }
 
-void Informer::loop(Sender &communicator) {
+void Informer::loop() {
     if (informInterval > 0 && (millis() - lastInformTime) >= informInterval) {
         Serial.println("Tti");
         delay(300);
-        inform(communicator);
+        inform();
         Serial.println("Nmdl");
         lastInformTime = millis();
     }
 }
 
-ErrorCode Informer::inform(Sender &communicator) {
+ErrorCode Informer::inform() {
     Serial.println("Informer::inform");
     delay(300);
     if (packetSent) {
@@ -52,13 +52,31 @@ ErrorCode Informer::inform(Sender &communicator) {
     }
     if (storage.prepareData()) {
         if (informFormat == IF_BINARY) {
-            Serial.println("ib");
-            delay(300);
-            communicator.sendBinary(storage.getBuffer(), storage.getBufferSize());
+            const uint8_t* data = storage.getBuffer();
+            uint16_t bytesCount = storage.getBufferSize();
+            uint16_t hash = 0;
+            uint16_t i = 0;
+            for (; i < bytesCount - 1; i += 2) {
+                hash += data[i + 1] + ( data[i] << 8 );
+            }
+            if (i < bytesCount) {
+                hash += data[i] << 8;
+            }
+            Serial.write(0);
+            Serial.write(0);
+            Serial.write(0);
+            Serial.write(bytesCount);
+            Serial.write(hash);
+            Serial.write(data, bytesCount);
+            Serial.write(0);
+            Serial.write(0);
+            Serial.write(0);
+            Serial.write(1);
         } else {
-            Serial.println("it");
-            delay(300);
-            communicator.sendData('i', writeInform);
+            Serial.print("(");
+            Serial.print('I');
+            writeInform(Serial);
+            Serial.print(")");
         }
         packetSent = true;
         return OK;

@@ -8,7 +8,6 @@
 #include <Arduino.h>
 #include "data.h"
 #include "Informer.h"
-#include "Sender.h"
 #include "read.h"
 
 
@@ -39,9 +38,9 @@ enum Instruction {
 };
 
 
-class Communicator : public Sender {
+class Communicator {
 public:
-    Communicator(Informer informer, Reader &reader) : informer(informer), reader(reader)  {}
+    Communicator(Informer &informer, Reader &reader) : informer(informer), reader(reader)  {}
     void loop();
 private:
     char cmdBuff[CMD_BUFF_SIZE];
@@ -56,11 +55,8 @@ private:
     size_t getData(char **res);
     void processIntValue(ErrorCode (*processor)(Communicator *self, uint32_t));
     void sendAnswer(char answerCodeChar, void (*writer)(Communicator *self, Stream &stream));
-    void sendData(char answerCodeChar, void (*writer)(Stream &stream));
-    void sendBinary(const uint8_t* data, uint16_t bytesCoutn);
     void sendSuccess();
     void sendError(ErrorCode  code);
-    void sendErrorIfNotSuccess(ErrorCode code);
 
 };
 

@@ -45,7 +45,6 @@ void EEPROMStorage::add(Data &data) {
     currPosition++;
     Serial.print("+");
     Serial.println(currPosition);
-    logMem();
 }
 
 const Data& EEPROMStorage::getLast() {

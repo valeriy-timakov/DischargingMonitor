@@ -10,10 +10,7 @@
 
 class Log {
 public:
-    static void error(ErrorCode errorCode, const char *message);
-    static void error(const char *message);
-    void error(String message);
-
+    static void error(ErrorCode errorCode);
 };
 
 
