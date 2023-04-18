@@ -53,7 +53,9 @@ void EEPROMStorage::loop() {
 void EEPROMStorage::add(Data &data) {
     log.log(LB_ADD_DATA_ENTERED);
     bool savePrevious;
-    if (currComparePosition == 0) {
+    if (currPosition == 0) {
+        savePrevious = true;
+    } else if (currComparePosition == 0) {
         savePrevious = false;
     } else if (currComparePosition == COMPARE_BUFFER_CAPACITY) {
         savePrevious = true;

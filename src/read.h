@@ -29,10 +29,12 @@ public:
     const Data& getLastData();
     void setReadInterval(uint32_t value);
     void syncTime(uint32_t value);
-    uint32_t getReadInterval();
-    uint32_t getLastReadTimeStamp();
-    uint32_t getTimeStamp();
+    uint32_t getReadInterval() const;
+    uint32_t getLastReadTimeStamp() const;
+    uint32_t getTimeStamp() const;
     ErrorCode performRead();
+    uint64_t getCurrentId() const;
+    void setCurrentId(uint64_t value);
 
     static float getCoefficient(ReadMode mode);
     static float deserializeCurrent(const Data *data);
@@ -41,6 +43,16 @@ private:
     EEPROMStorage &storage;
     Log &log;
     ADS3x ads;
+
+
+    uint64_t lastRead = 0;
+    uint16_t readInterval = 5000;
+    uint32_t baseTime = 0;
+    uint64_t baseLocalTime = 0;
+    uint64_t currentId = 0;
+    ReadMode readMode = M_WAIT;
+    bool modeRequested = false;
+    Data currData;
 
 
     static float deserializeMilli(uint16_t relativeValue, ReadMode mode);

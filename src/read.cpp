@@ -14,14 +14,6 @@ const float baseResistance = 0.130;
 const float voltageDividerCfnt = (R1 + R2) / R1;//48.462
 
 
-static ReadMode readMode = M_WAIT;
-static bool modeRequested = false;
-static uint64_t lastRead = 0;
-static uint16_t readInterval = 5000;
-static uint32_t baseTime = 0;
-static uint64_t baseLocalTime = 0;
-static Data currData;
-
 struct ReadData {
     uint8_t pin;
     uint16_t gain;
@@ -47,9 +39,6 @@ const ReadData readConfig [] = {
 };
 
 
-uint32_t getTimeStamp() {
-    return baseTime + (millis() - baseLocalTime);
-}
 
 void Reader::init() {
     ads.begin();
@@ -96,15 +85,15 @@ void Reader::loop() {
     }
 }
 
-uint32_t Reader::getReadInterval() {
+uint32_t Reader::getReadInterval() const {
     return readInterval;
 }
 
-uint32_t Reader::getLastReadTimeStamp() {
+uint32_t Reader::getLastReadTimeStamp() const {
     return (uint32_t)( baseTime + (lastRead - baseLocalTime) );
 }
 
-uint32_t Reader::getTimeStamp() {
+uint32_t Reader::getTimeStamp() const {
     return (uint32_t)( baseTime + (millis() - baseLocalTime) );
 }
 
@@ -150,4 +139,12 @@ ErrorCode Reader::performRead() {
     } else {
         return E_SENSOR_READ_ALREADY_IN_PROGRESS;
     }
+}
+
+void Reader::setCurrentId(uint64_t value) {
+    currentId = value;
+}
+
+uint64_t Reader::getCurrentId() const {
+    return currentId;
 }

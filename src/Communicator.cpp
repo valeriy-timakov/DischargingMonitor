@@ -95,51 +95,51 @@ void writeData(Communicator *self, Stream &stream) {
     stream.print(_tmpData->timestamp);
 }
 
+/**
+ * Commands
+ * First char:
+ * r - read
+ * s - set
+ * e - execute
+ * Second char (for read/set):
+ * t - current timestamp
+ * v - last measure voltage with timestamp, V/ms
+ * c - last measure current with timestamp, A/ms
+ * i - inform interval, ms
+ * l - last measure timestamp, ms
+ * r - measurements interval, ms
+ * f - inform format, text/binary
+ * n - inform data coefficients
+ * o - inform values order
+ * a - voltage permissible variation, dimensionless int data
+ * b - current permissible variation, dimensionless int data
+ * d - logging is enabled
+ * g - log register values
+ * p - last prepared data timestamp
+ * s - last saved data timestamp
+ * Second char (for execute):
+ * r - force measurement
+ * i - force inform
+ * p - mark last inform package successfully proceeded
+ * e - inform of last inform package proceeding error
+ * No data results:
+ * S - success
+ * E - error (with error code)
+ * Errors:
+ *   OK:0 - "Ok result, no error.";
+ *   E_REQUEST_DATA_NO_VALUE:1 - No value
+ *   E_REQUEST_DATA_NOT_DIGITAL_VALUE:2 - Not digital value
+ *   E_SENSOR_READ_TIME_OUT:3 - Time out waiting answer from ADC!
+ *   E_SENSOR_READ_REQUEST_FAILED:4 - Error requesting measurement!
+ *   E_SENSOR_READ_ALREADY_IN_PROGRESS:5 - Measurement is already in progress!
+ *   E_INFORM_NO_DATA_TO_SEND:6 - All available data was sent by inform calls or no data pages were saved!
+ *   E_INFORM_PACKAGE_ALREADY_SENT:7 - Package already sent and not proceeded yet!
+ *   E_INSTRUCTION_UNRECOGIZED:8 - No command bound for this instruction!
+ *   E_READ_NO_DATA_TO_SEND:9 - No one measurement was performed, so not data available for sent!
+ *   E_NO_PACKAGE_WAS_SENT:10 - No inform package was sent to inform about its proceeding!
+ *   E_UNDEFINED_CODE:11 - "Code for undefined errors";
+ */
 void Communicator::processInstruction() {
-    /**
-     * Commands
-     * First char:
-     * r - read
-     * s - set
-     * e - execute
-     * Second char (for read/set):
-     * t - current timestamp
-     * v - last measure voltage with timestamp, V/ms
-     * c - last measure current with timestamp, A/ms
-     * i - inform interval, ms
-     * l - last measure timestamp, ms
-     * r - measurements interval, ms
-     * f - inform format, text/binary
-     * n - inform data coefficients
-     * o - inform values order
-     * a - voltage permissible variation, dimensionless int data
-     * b - current permissible variation, dimensionless int data
-     * d - logging is enabled
-     * g - log register values
-     * p - last prepared data timestamp
-     * s - last saved data timestamp
-     * Second char (for execute):
-     * r - force measurement
-     * i - force inform
-     * p - mark last inform package successfully proceeded
-     * e - inform of last inform package proceeding error
-     * No data results:
-     * S - success
-     * E - error (with error code)
-     * Errors:
-     *   OK:0 - "Ok result, no error.";
-     *   E_REQUEST_DATA_NO_VALUE:1 - No value
-     *   E_REQUEST_DATA_NOT_DIGITAL_VALUE:2 - Not digital value
-     *   E_SENSOR_READ_TIME_OUT:3 - Time out waiting answer from ADC!
-     *   E_SENSOR_READ_REQUEST_FAILED:4 - Error requesting measurement!
-     *   E_SENSOR_READ_ALREADY_IN_PROGRESS:5 - Measurement is already in progress!
-     *   E_INFORM_NO_DATA_TO_SEND:6 - All available data was sent by inform calls or no data pages were saved!
-     *   E_INFORM_PACKAGE_ALREADY_SENT:7 - Package already sent and not proceeded yet!
-     *   E_INSTRUCTION_UNRECOGIZED:8 - No command bound for this instruction!
-     *   E_READ_NO_DATA_TO_SEND:9 - No one measurement was performed, so not data available for sent!
-     *   E_NO_PACKAGE_WAS_SENT:10 - No inform package was sent to inform about its proceeding!
-     *   E_UNDEFINED_CODE:11 - "Code for undefined errors";
-     */
     bool proceeded = true;
     if (curCmdBuffPos >= CMD_ID_SIZE + CMD_INSTR_SIZE) {
         char instrFirst = cmdBuff[CMD_ID_SIZE];
@@ -177,9 +177,11 @@ void Communicator::processInstruction() {
             } else if (instrSecond == 'g') {
                 sendAnswer('g', [](Communicator *self, Stream &stream) { stream.print( self->log.getLogResister() ); });
             } else if (instrSecond == 'p') {
-                sendAnswer('h', [](Communicator *self, Stream &stream) { stream.print( self->storage.getLastPreparedTimestamp() ); });
+                sendAnswer('p', [](Communicator *self, Stream &stream) { stream.print( self->storage.getLastPreparedTimestamp() ); });
             } else if (instrSecond == 's') {
-                sendAnswer('h', [](Communicator *self, Stream &stream) { stream.print( self->storage.getLastSavedTimestamp() ); });
+                sendAnswer('s', [](Communicator *self, Stream &stream) { stream.print( self->storage.getLastSavedTimestamp() ); });
+            } else if (instrSecond == 'h') {
+                sendAnswer('h', [](Communicator *self, Stream &stream) { stream.print( (unsigned long) self->reader.getCurrentId() ); });
             } else {
                 proceeded = false;
             }
@@ -198,6 +200,8 @@ void Communicator::processInstruction() {
                 processIntValue([](Communicator *self, uint32_t value) { self->storage.setDataPermissibleVariation(DCC_CURRENT, value); return OK; });
             } else if (instrSecond == 'd') {
                 processIntValue([](Communicator *self, uint32_t value) { self->log.setLogEnabled(value > 0); return OK; });
+            } else if (instrSecond == 'h') {
+                processIntValue([](Communicator *self, uint32_t value) { self->reader.setCurrentId(value > 0); return OK; });
             } else {
                 proceeded = false;
             }
