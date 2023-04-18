@@ -8,8 +8,12 @@
 #define ATTINYTEST_READ_H
 
 #include "EEPROMStorage.h"
+#include "ADS.h"
+#include "Log.h"
 
 
+#define READER_ADS1115_ADDRESS    0x48
+#define ADS1115_READY_PIN_DEFAULT 1
 
 enum ReadMode {
     M_VOLTAGE = 0,
@@ -19,15 +23,15 @@ enum ReadMode {
 
 class Reader {
 public:
-    Reader(EEPROMStorage &storage): storage(storage) {}
+    Reader(EEPROMStorage &storage, Log &log): storage(storage), log(log), ads(ADS1115_READY_PIN_DEFAULT) {}
     void init();
     void loop();
     const Data& getLastData();
-    void writeReadInterval(Stream &stream);
-    ErrorCode setReadInterval(uint32_t value);
-    void writeLastReadTimeStamp(Stream &stream);
-    ErrorCode syncTime(uint32_t value);
-    void writeTimeStamp(Stream &stream);
+    void setReadInterval(uint32_t value);
+    void syncTime(uint32_t value);
+    uint32_t getReadInterval();
+    uint32_t getLastReadTimeStamp();
+    uint32_t getTimeStamp();
     ErrorCode performRead();
 
     static float getCoefficient(ReadMode mode);
@@ -35,6 +39,9 @@ public:
     static float deserializeVoltage(const Data *data);
 private:
     EEPROMStorage &storage;
+    Log &log;
+    ADS3x ads;
+
 
     static float deserializeMilli(uint16_t relativeValue, ReadMode mode);
 

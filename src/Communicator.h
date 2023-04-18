@@ -9,6 +9,8 @@
 #include "data.h"
 #include "Informer.h"
 #include "read.h"
+#include "EEPROMStorage.h"
+#include "Log.h"
 
 
 #define CMD_ID_SIZE 4
@@ -17,30 +19,10 @@
 #define COMMAND_START_CHAR '('
 #define COMMAND_END_CHAR ')'
 
-enum Instruction {
-    SYNC_TIME = 1,
-    GET_TIME = 2,
-    GET_CURRENT = 3,
-    GET_VOLTAGE = 4,
-    SET_INFORM_INTERVAL = 5,
-    GET_INFORM_INTERVAL = 6,
-    PERFORM_READ = 7,
-    GET_LAST_READ_TIMESTAMP = 8,
-    SET_READ_INTERVAL = 9,
-    GET_READ_INTERVAL = 10,
-    SET_INFORM_FORMAT = 11,
-    GET_INFORM_FORMAT = 12,
-    GET_INFORM_COEFFICIENTS = 13,
-    GET_INFORM_ORDER = 14,
-    PERFORM_INFORM = 15,
-    INFORM_DATA_PROCEEDED = 16,
-    INFORM_DATA_PROCEED_ERROR = 17,
-};
-
-
 class Communicator {
 public:
-    Communicator(Informer &informer, Reader &reader) : informer(informer), reader(reader)  {}
+    Communicator(Informer &informer, Reader &reader, EEPROMStorage &storage, Log &log) : informer(informer), reader(reader),
+        storage(storage), log(log)  {}
     void loop();
 private:
     char cmdBuff[CMD_BUFF_SIZE];
@@ -49,6 +31,9 @@ private:
     bool commandParsed = false;
     Informer &informer;
     Reader &reader;
+    EEPROMStorage &storage;
+    Log &log;
+
 
     bool readCommand();
     void processInstruction();

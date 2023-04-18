@@ -7,6 +7,7 @@
 
 #include "Arduino.h"
 #include "EEPROMStorage.h"
+#include "Log.h"
 
 
 
@@ -19,22 +20,23 @@ static EEPROMStorage *pStorage;
 
 class Informer {
 public:
-    Informer(EEPROMStorage &storage) : storage(storage) {
+    Informer(EEPROMStorage &storage, Log &log) : storage(storage), log(log) {
         pStorage = &this->storage;
     }
     void loop();
     ErrorCode inform();
     ErrorCode proceeded();
     ErrorCode proceedError();
-    ErrorCode setInformInterval(uint32_t value);
-    ErrorCode setInformFormat(uint32_t value);
-    void writeInformInterval(Stream &stream);
-    void writeInformFormat(Stream &stream);
+    void setInformInterval(uint32_t value);
+    void setInformFormat(InformFormat value);
+    uint32_t getInformInterval();
+    InformFormat getInformFormat();
     void writeInformOrder(Stream &stream);
     void writeInformCoefficients(Stream &stream);
 private:
     bool packetSent = false;
     EEPROMStorage &storage;
+    Log &log;
 
     InformFormat informFormat = IF_TEXT;
     uint32_t informInterval = 0;

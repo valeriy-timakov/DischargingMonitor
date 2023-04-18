@@ -7,7 +7,6 @@
 
 Stream *pStream;
 
-
 void write(Data &currData) {
     pStream->print(Reader::deserializeVoltage(&currData), 3);
     pStream->print(',');
@@ -15,6 +14,11 @@ void write(Data &currData) {
     pStream->print(',');
     pStream->print(currData.timestamp);
     pStream->print(';');
+}
+
+void writeInform(Stream &stream) {
+    pStream = &stream;
+    pStorage->enumerate(write);
 }
 
 void Informer::writeInformOrder(Stream &stream) {
@@ -27,15 +31,10 @@ void Informer::writeInformCoefficients(Stream &stream) {
     stream.print(Reader::getCoefficient(M_CURRENT), 5);
 }
 
-void writeInform(Stream &stream) {
-    pStream = &stream;
-    pStorage->enumerate(write);
-}
-
 void Informer::loop() {
     if (informInterval > 0 && (millis() - lastInformTime) >= informInterval) {
+        log.log(LB_INFORM_STARTED);
         Serial.println("Tti");
-        delay(300);
         inform();
         Serial.println("Nmdl");
         lastInformTime = millis();
@@ -43,11 +42,7 @@ void Informer::loop() {
 }
 
 ErrorCode Informer::inform() {
-    Serial.println("Informer::inform");
-    delay(300);
     if (packetSent) {
-        Serial.println("packetSent");
-        delay(300);
         return E_INFORM_PACKAGE_ALREADY_SENT;
     }
     if (storage.prepareData()) {
@@ -100,23 +95,20 @@ ErrorCode Informer::proceedError() {
     }
     return E_NO_PACKAGE_WAS_SENT;
 }
-
-void Informer::writeInformInterval(Stream &stream) {
-    stream.print(informInterval);
+uint32_t Informer::getInformInterval() {
+    return informInterval;
 }
 
-void Informer::writeInformFormat(Stream &stream) {
-    stream.print(informFormat == IF_BINARY ? "bin" : "txt");
+InformFormat Informer::getInformFormat() {
+    return informFormat;
 }
 
-ErrorCode Informer::setInformInterval(uint32_t value) {
+void Informer::setInformInterval(uint32_t value) {
     informInterval = value;
-    return OK;
 }
 
-ErrorCode Informer::setInformFormat(uint32_t value) {
-    informFormat = value > 0 ? IF_BINARY : IF_TEXT;
-    return OK;
+void Informer::setInformFormat(InformFormat value) {
+    informFormat = value;
 }
 
 

@@ -5,15 +5,17 @@
 #include "EEPROMStorage.h"
 #include "Wire.h"
 #include "Informer.h"
+#include "Log.h"
 
 #define CS_PIN 10
 
 //TimeKeeper tk;
 LedBlink led(A0);
-EEPROMStorage storage(CS_PIN);
-Reader reader(storage);
-Informer informer(storage);
-Communicator communicator(informer, reader);
+Log logger;
+EEPROMStorage storage(CS_PIN, logger);
+Reader reader(storage, logger);
+Informer informer(storage, logger);
+Communicator communicator(informer, reader, storage, logger);
 
 void setup() {
     Serial.begin(9600);

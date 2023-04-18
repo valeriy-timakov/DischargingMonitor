@@ -15,6 +15,12 @@ void Communicator::loop() {
     }
 }
 
+void sendError_(ErrorCode errorCode) {
+    Serial.print("(E");
+    Serial.print(errorCode);
+    Serial.print(")");
+}
+
 bool Communicator::readCommand() {
     commandParsed = false;
     while (Serial.available()) {
@@ -24,11 +30,13 @@ bool Communicator::readCommand() {
                 case COMMAND_START_CHAR:
                     startDetected = false;
                     curCmdBuffPos = 0;
-                    Serial.print("(Error");
+                    Serial.print("(E");
+                    Serial.print(E_NEW_COMMAND_INSIDE);
+                    Serial.print(": ");
                     if (curCmdBuffPos > 0) {
                         Serial.write(cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
                     }
-                    Serial.print(" new cmd inside!)");
+                    Serial.print(")");
                     Serial.print(received);
                     break;
                 case COMMAND_END_CHAR:
@@ -37,7 +45,7 @@ bool Communicator::readCommand() {
                         commandParsed = true;
                         return true;
                     } else {
-                        Serial.print("(Error command empty!)");
+                        sendError_(E_COMMAND_EMPTY);
                     }
                     break;
                 default:
@@ -45,9 +53,11 @@ bool Communicator::readCommand() {
                         cmdBuff[curCmdBuffPos] = received;
                         curCmdBuffPos++;
                     } else {
-                        Serial.print("(Error");
+                        Serial.print("(E");
+                        Serial.print(E_COMMAND_SIZE_OVERFLOW);
+                        Serial.print(": ");
                         Serial.write(cmdBuff, CMD_ID_SIZE);
-                        Serial.print(" cmd size overflow!)");
+                        Serial.print(")");
                         startDetected = false;
                     }
             }
@@ -57,7 +67,7 @@ bool Communicator::readCommand() {
                 commandParsed = false;
                 startDetected = true;
             } else if (received == COMMAND_END_CHAR) {
-                Serial.print("(Error end without start!)");
+                sendError_(E_COMMAND_END_WITHOUT_START);
             } else {
                 Serial.print(received);
             }
@@ -102,6 +112,12 @@ void Communicator::processInstruction() {
      * f - inform format, text/binary
      * n - inform data coefficients
      * o - inform values order
+     * a - voltage permissible variation, dimensionless int data
+     * b - current permissible variation, dimensionless int data
+     * d - logging is enabled
+     * g - log register values
+     * p - last prepared data timestamp
+     * s - last saved data timestamp
      * Second char (for execute):
      * r - force measurement
      * i - force inform
@@ -130,7 +146,7 @@ void Communicator::processInstruction() {
         char instrSecond = cmdBuff[CMD_ID_SIZE + 1];
         if (instrFirst  == 'r') {
             if (instrSecond == 't') {
-                sendAnswer('t', [](Communicator *self, Stream &stream) { self->reader.writeTimeStamp(stream); });
+                sendAnswer('t', [](Communicator *self, Stream &stream) { stream.print( self->reader.getTimeStamp() ); });
             } else if (instrSecond == 'v' || instrSecond == 'c') {
                 const Data& tmpData = reader.getLastData();
                 if (tmpData.available()) {
@@ -141,29 +157,47 @@ void Communicator::processInstruction() {
                     sendError(E_READ_NO_DATA_TO_SEND);
                 }
             } else if (instrSecond == 'i') {
-                sendAnswer('i', [](Communicator *self, Stream &stream) { self->informer.writeInformInterval(stream); });
+                sendAnswer('i', [](Communicator *self, Stream &stream) { stream.print( self->informer.getInformInterval() ); });
             } else if (instrSecond == 'l') {
-                sendAnswer('l', [](Communicator *self, Stream &stream) { self->reader.writeLastReadTimeStamp(stream); });
+                sendAnswer('l', [](Communicator *self, Stream &stream) { stream.print( self->reader.getLastReadTimeStamp() ); });
             } else if (instrSecond == 'r') {
-                sendAnswer('r', [](Communicator *self, Stream &stream) { self->reader.writeReadInterval(stream); });
+                sendAnswer('r', [](Communicator *self, Stream &stream) { stream.print( self->reader.getReadInterval() ); });
             } else if (instrSecond == 'f') {
-                sendAnswer('f', [](Communicator *self, Stream &stream) { self->informer.writeInformFormat(stream); });
+                sendAnswer('f', [](Communicator *self, Stream &stream) { stream.print( self->informer.getInformFormat() == IF_BINARY ? "b" : "t"); });
             } else if (instrSecond == 'n') {
                 sendAnswer('n', [](Communicator *self, Stream &stream) { self->informer.writeInformCoefficients(stream); });
             } else if (instrSecond == 'o') {
                 sendAnswer('o', [](Communicator *self, Stream &stream) { self->informer.writeInformOrder(stream); });
+            } else if (instrSecond == 'a') {
+                sendAnswer('a', [](Communicator *self, Stream &stream) { stream.print( self->storage.getDataPermissibleVariation(DCC_VOLTAGE) ); });
+            } else if (instrSecond == 'b') {
+                sendAnswer('b', [](Communicator *self, Stream &stream) { stream.print( self->storage.getDataPermissibleVariation(DCC_CURRENT) ); });
+            } else if (instrSecond == 'd') {
+                sendAnswer('d', [](Communicator *self, Stream &stream) { stream.print( self->log.isLogEnabled() ); });
+            } else if (instrSecond == 'g') {
+                sendAnswer('g', [](Communicator *self, Stream &stream) { stream.print( self->log.getLogResister() ); });
+            } else if (instrSecond == 'p') {
+                sendAnswer('h', [](Communicator *self, Stream &stream) { stream.print( self->storage.getLastPreparedTimestamp() ); });
+            } else if (instrSecond == 's') {
+                sendAnswer('h', [](Communicator *self, Stream &stream) { stream.print( self->storage.getLastSavedTimestamp() ); });
             } else {
                 proceeded = false;
             }
         } else if (instrFirst == 's') {
             if (instrSecond == 't') {
-                processIntValue([](Communicator *self, uint32_t value) { return self->reader.syncTime(value); });
+                processIntValue([](Communicator *self, uint32_t value) { self->reader.syncTime(value); return OK; });
             } else if (instrSecond == 'i') {
-                processIntValue([](Communicator *self, uint32_t value) { return self->informer.setInformInterval(value); });
+                processIntValue([](Communicator *self, uint32_t value) { self->informer.setInformInterval(value); return OK; });
             } else if (instrSecond == 'r') {
-                processIntValue([](Communicator *self, uint32_t value) { return self->reader.setReadInterval(value); });
+                processIntValue([](Communicator *self, uint32_t value) { self->reader.setReadInterval(value); return OK; });
             } else if (instrSecond == 'f') {
-                processIntValue([](Communicator *self, uint32_t value) { return self->informer.setInformFormat(value); });
+                processIntValue([](Communicator *self, uint32_t value) { self->informer.setInformFormat( value > 0 ? IF_BINARY : IF_TEXT); return OK; });
+            } else if (instrSecond == 'a') {
+                processIntValue([](Communicator *self, uint32_t value) { self->storage.setDataPermissibleVariation(DCC_VOLTAGE, value); return OK; });
+            } else if (instrSecond == 'b') {
+                processIntValue([](Communicator *self, uint32_t value) { self->storage.setDataPermissibleVariation(DCC_CURRENT, value); return OK; });
+            } else if (instrSecond == 'd') {
+                processIntValue([](Communicator *self, uint32_t value) { self->log.setLogEnabled(value > 0); return OK; });
             } else {
                 proceeded = false;
             }

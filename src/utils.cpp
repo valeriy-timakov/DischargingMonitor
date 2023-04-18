@@ -3,8 +3,6 @@
 //
 
 #include "utils.h"
-#include "MemoryFree.h"
-
 
 
 uint32_t atoi(const char* str, int len) {
@@ -20,7 +18,7 @@ uint32_t atoi(const char* str, int len) {
     return ret;
 }
 
-uint8_t fn(uint8_t pos, uint8_t last, uint8_t size) {
+uint8_t getNext(uint8_t pos, uint8_t last, uint8_t size) {
     uint8_t dLast = last + 1;
     if (pos < size - dLast) {
         return pos + dLast;
@@ -39,13 +37,13 @@ void shift(T *data, uint8_t last, uint8_t size) {
             start--;
         }
         T tmp = data[start];
-        uint8_t prevNext = start, next = fn(start, last, size);
+        uint8_t prevNext = start, next = getNext(start, last, size);
         while (next != start) {
             data[prevNext] = data[next];
             moveCount++;
             mask |= 1 << prevNext;
             prevNext = next;
-            next = fn(next, last, size);
+            next = getNext(next, last, size);
         }
         data[next] = tmp;
         moveCount++;

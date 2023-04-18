@@ -9,6 +9,8 @@
 #include <SPI.h>
 
 
+#define WRITEDELAY 10   // delay for writing to chip
+
 class EEPROM25LC1024 {
 public:
     EEPROM25LC1024(uint8_t csPin = 10) : csPin(csPin) {}

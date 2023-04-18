@@ -7,11 +7,11 @@
 #include "data.h"
 #include "Log.h"
 
-const float baseResistance = 0.1;
-#define R1 9.94
+const float baseResistance = 0.130;
+#define R1 9.99
 #define R2 467.1
 #define READ_TIME_OUT 10000
-const float voltageDividerCfnt = (R1 + R2) / R1;
+const float voltageDividerCfnt = (R1 + R2) / R1;//48.462
 
 
 static ReadMode readMode = M_WAIT;
@@ -42,8 +42,8 @@ void setCurrent(Data &data, uint16_t value) {
 }
 
 const ReadData readConfig [] = {
-    ReadData(2, ADS1X15_PGA_1_024V, voltageDividerCfnt, M_WAIT, setVoltage),
-    ReadData(0, ADS1X15_PGA_1_024V, 1.0f / baseResistance, M_CURRENT, setCurrent)
+    ReadData(2, ADS1X15_PGA_1_024V, voltageDividerCfnt, M_CURRENT, setVoltage),
+    ReadData(0, ADS1X15_PGA_0_256V, 1.0f / baseResistance, M_WAIT, setCurrent)
 };
 
 
@@ -52,65 +52,70 @@ uint32_t getTimeStamp() {
 }
 
 void Reader::init() {
-    beginADS();
+    ads.begin();
     currData.timestamp = 0;
 }
 
 void Reader::loop() {
     if (modeRequested) {
         uint16_t value;
-        if (getRelativeValueIfExists(&value)) {
+        if (ads.getRelativeValueIfExists(&value)) {
+            log.log(LB_READ_READED);
             ReadData conf = readConfig[readMode];
             conf.setter(currData, value);
             readMode = conf.nextMode;
             if (readMode == M_WAIT) {
+                log.log(LB_READ_SWITHCED_TO_WAIT);
                 currData.timestamp = (currData.timestamp + getTimeStamp()) / 2;
                 storage.add(currData);
             }
             modeRequested = false;
         } else if (millis() - lastRead > READ_TIME_OUT) {
-            Log::error(E_SENSOR_READ_TIME_OUT);
+            log.log(LB_READ_TIMEOUT);
+            log.error(E_SENSOR_READ_TIME_OUT);
             modeRequested = false;
         }
     } else {
         if (readMode == M_WAIT) {
             if (millis() - lastRead > readInterval) {
+                log.log(LB_READ_SWITCHED_TO_VOLTAGE);
                 readMode = M_VOLTAGE;
             }
         } else {
             ReadData conf = readConfig[readMode];
-            bool requested = requestValue(conf.pin, conf.gain);
-            if (requested) {
+            if (ads.requestValue(conf.pin, conf.gain)) {
+                log.log(LB_READ_REQUESTED);
                 lastRead = millis();
                 currData.timestamp = getTimeStamp();
                 modeRequested = true;
             } else {
-                Log::error(E_SENSOR_READ_REQUEST_FAILED);
+                log.log(LB_READ_REQUEST_FAILED);
+                log.error(E_SENSOR_READ_REQUEST_FAILED);
             }
         }
     }
 }
 
-void Reader::writeTimeStamp(Stream &stream) {
-    stream.print( (uint32_t)( baseTime + (millis() - baseLocalTime) ) );
+uint32_t Reader::getReadInterval() {
+    return readInterval;
 }
 
-void Reader::writeLastReadTimeStamp(Stream &stream) {
-    stream.print( (uint32_t)( baseTime + (lastRead - baseLocalTime) ) );
+uint32_t Reader::getLastReadTimeStamp() {
+    return (uint32_t)( baseTime + (lastRead - baseLocalTime) );
 }
 
-void Reader::writeReadInterval(Stream &stream) {
-    stream.print(readInterval);
+uint32_t Reader::getTimeStamp() {
+    return (uint32_t)( baseTime + (millis() - baseLocalTime) );
 }
 
 float Reader::getCoefficient(ReadMode mode) {
     const ReadData &conf = readConfig[mode];
-    return convertToVoltage(1, conf.gain) * conf.cfnt;
+    return ADS3x::convertToVoltage(1, conf.gain) * conf.cfnt;
 }
 
 float Reader::deserializeMilli(uint16_t relativeValue, ReadMode mode) {
     const ReadData &conf = readConfig[mode];
-    return convertToVoltage(relativeValue, conf.gain) * conf.cfnt;
+    return ADS3x::convertToVoltage(relativeValue, conf.gain) * conf.cfnt;
 }
 
 float Reader::deserializeCurrent(const Data *data) {
@@ -129,15 +134,13 @@ const Data& Reader::getLastData() {
     }
 }
 
-ErrorCode Reader::syncTime(uint32_t value) {
+void Reader::syncTime(uint32_t value) {
     baseTime = value;
     baseLocalTime = millis();
-    return OK;
 }
 
-ErrorCode Reader::setReadInterval(uint32_t value) {
+void Reader::setReadInterval(uint32_t value) {
     readInterval = value;
-    return OK;
 }
 
 ErrorCode Reader::performRead() {
@@ -148,4 +151,3 @@ ErrorCode Reader::performRead() {
         return E_SENSOR_READ_ALREADY_IN_PROGRESS;
     }
 }
-

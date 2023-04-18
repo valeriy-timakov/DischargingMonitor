@@ -12,7 +12,6 @@
 #define WREN  0b0110
 #define RDSR  0b0101
 #define WIP_BIT 0
-#define WRITEDELAY 10   // delay for writing to chip
 
 
 SPISettings spiSettings(4000000, MSBFIRST, SPI_MODE0);
@@ -34,9 +33,6 @@ bool EEPROM25LC1024::writeComplete() const {
 static void SPIwrite(void *buf, size_t count);
 
 void EEPROM25LC1024::writeData(uint32_t address, void *data, size_t count){
-#ifdef DEBUG
-    Serial.println("E2:wD");
-#endif
     beginWrite(address);
     SPIwrite(data, count);
     endWrite();
@@ -144,18 +140,8 @@ float EEPROM25LC1024::readFloat(uint32_t address){
 void EEPROM25LC1024::checkDelayAfterWrite() const {
     uint32_t afterLastWrite = millis() - lastWrite;
     if (afterLastWrite < WRITEDELAY) {
-#ifdef DEBUG
-        Serial.println("Awdnc");
-#endif
         if (!writeComplete()) {
-#ifdef DEBUG
-            Serial.print("Wnc-w!:");
-            Serial.println(WRITEDELAY - afterLastWrite + 2);
-#endif
             delay(WRITEDELAY - afterLastWrite + 2);
-#ifdef DEBUG
-            Serial.println("Eow");
-#endif
         }
     }
 }

@@ -18,12 +18,9 @@
 
 #ifndef ADS
 #define ADS
-#define ADS1115_ADDRESS                   0x48
 
+#define ADS1115_ADDRESS_DEFAULT             0x48
 
-#define ADS1X15_OK                        0
-#define ADS1X15_INVALID_VOLTAGE           -100
-#define ADS1X15_INVALID_GAIN              0xFF
 
 
 // BIT 9-11     gain                        // (0..5) << 9
@@ -37,14 +34,36 @@
 #define MAX_READ_VALUE 32767
 
 
-void resetADS();
-bool beginADS();
-bool requestValue(uint8_t pin, uint16_t gain);
-bool getValueIfExists(float* valuePtr);
-float getMaxVoltage(uint16_t gain);
-bool getRelativeValueIfExists(uint16_t* valuePtr);
-float convertToVoltage(uint16_t value, uint16_t gain);
 
+static const uint8_t ADS_MAX_INSTANCES_COUNT = 8;
+
+class ADS3x {
+public:
+    ADS3x(uint8_t readyPin, uint8_t address = ADS1115_ADDRESS_DEFAULT) : address(address),
+        readyPin(readyPin), instanceIx(nextInstanceIx++) {}
+    bool begin();
+    bool requestValue(uint8_t pin, uint16_t gain);
+    bool getRelativeValueIfExists(uint16_t *valuePtr);
+
+    static float convertToVoltage(uint16_t value, uint16_t gain);
+
+private:
+    void requestADC(uint16_t mask);
+    bool isReady();
+    bool isConnected();
+
+    static float getMaxVoltage(uint16_t gain);
+
+    bool writeRegister(uint8_t reg, uint16_t value);
+    uint16_t readRegister(uint8_t reg);
+
+    static uint8_t nextInstanceIx;
+
+    uint8_t address;
+    uint8_t readyPin;
+    uint8_t instanceIx;
+
+};
 
 
 

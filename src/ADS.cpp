@@ -36,38 +36,88 @@
 #define ADS_CONF_NOCOMP  0x00
 #define ADS_CONF_COMP    0x20
 
+uint8_t ADS3x::nextInstanceIx = 0;
 
-bool isReady();
-float getVoltage();
-void requestADC(uint16_t readmode);
+
 uint16_t readRegister(uint8_t reg);
 bool writeRegister(uint8_t reg, uint16_t value);
 static uint16_t lastGain;
 
-bool isConnected()
+bool ADS3x::isConnected()
 {
-    Wire.beginTransmission(ADS1115_ADDRESS);
+    Wire.beginTransmission(address);
     return (Wire.endTransmission() == 0);
 }
 
-static volatile bool dataReady = false;
+static volatile uint8_t dataReady = 0;
 
-void readyHandler() {
-    dataReady = true;
+inline void readyHandler(uint8_t idx) {
+    dataReady = 1 << idx;
 }
 
-bool beginADS()
-{
+void readyHandler0() {
+    readyHandler(0);
+}
+
+void readyHandler1() {
+    readyHandler(1);
+}
+
+void readyHandler2() {
+    readyHandler(2);
+}
+
+void readyHandler3() {
+    readyHandler(3);
+}
+
+void readyHandler4() {
+    readyHandler(4);
+}
+
+void readyHandler5() {
+    readyHandler(5);
+}
+
+void readyHandler6() {
+    readyHandler(6);
+}
+
+void readyHandler7() {
+    readyHandler(7);
+}
+
+bool ADS3x::begin() {
     if (! isConnected()) return false;
     writeRegister(ADS1X15_REG_LOW_THRESHOLD, 0);
     writeRegister(ADS1X15_REG_HIGH_THRESHOLD, 0x8000);//1 << 15
 
-    attachInterrupt(1, readyHandler, RISING);
+    void (*pRadeyHandler)(void)  = NULL;
+    switch (instanceIx) {
+        case 0: pRadeyHandler = &readyHandler0;
+            break;
+        case 1: pRadeyHandler = &readyHandler1;
+            break;
+        case 2: pRadeyHandler = &readyHandler2;
+            break;
+        case 3: pRadeyHandler = &readyHandler3;
+            break;
+        case 4: pRadeyHandler = &readyHandler4;
+            break;
+        case 5: pRadeyHandler = &readyHandler5;
+            break;
+        case 6: pRadeyHandler = &readyHandler6;
+            break;
+        case 7: pRadeyHandler = &readyHandler7;
+            break;
+    }
+
+    attachInterrupt(readyPin, pRadeyHandler, RISING);
     return true;
 }
 
 
-float getMaxVoltage(uint16_t gain) {
+float ADS3x::getMaxVoltage(uint16_t gain) {
     switch (gain) {
         case ADS1X15_PGA_6_144V: return 6.144;
         case ADS1X15_PGA_4_096V: return 4.096;
@@ -88,42 +138,25 @@ uint16_t getPinMask(uint8_t pin) {
     return 0;
 }
 
-bool requestValue(uint8_t pin, uint16_t gain) {
+bool ADS3x::requestValue(uint8_t pin, uint16_t gain) {
     float maxVoltage = getMaxVoltage(gain);
     uint16_t pinMask = getPinMask(pin);
     if (maxVoltage == 0 || pinMask == 0) {
         return false;
     }
     requestADC(pinMask | gain);
-    dataReady = false;
+    dataReady &= ~(1 << instanceIx);
     lastGain = gain;
     return true;
 }
 
-bool getValueIfExists(float* valuePtr)
-{
-    if (dataReady == false) {
-        return false;
-    }
-    if (isReady() == false) {
-        return false;
-    }
-    *valuePtr = getVoltage();
-    return true;
-}
-
-bool isReady() {
+bool ADS3x::isReady() {
     uint16_t val = readRegister(ADS1X15_REG_CONFIG);
     return ((val & ADS1X15_OS_NOT_BUSY) > 0);
 }
 
-float getVoltage() {
-    int16_t value = readRegister(ADS1X15_REG_CONVERT);
-    return convertToVoltage(value, lastGain);
-}
-
-bool getRelativeValueIfExists(uint16_t* valuePtr) {
-    if (dataReady == false) {
+bool ADS3x::getRelativeValueIfExists(uint16_t* valuePtr) {
+    if ( ( dataReady & (instanceIx + 1) ) == 0 ) {
         return false;
     }
     if (isReady() == false) {
@@ -133,7 +166,7 @@ bool getRelativeValueIfExists(uint16_t* valuePtr) {
     return true;
 }
 
-float convertToVoltage(uint16_t value, uint16_t gain) {
+float ADS3x::convertToVoltage(uint16_t value, uint16_t gain) {
     if (value == 0) return 0;
 
     float volts = getMaxVoltage(gain);
@@ -145,7 +178,7 @@ float convertToVoltage(uint16_t value, uint16_t gain) {
 
 }
 
-void requestADC(uint16_t mask) {
+void ADS3x::requestADC(uint16_t mask) {
 //    1<<15 | //OS : Start a single conversion (15)
 //    1 << 8 | // Mode Single-shot mode or power-down state (8)
 //    0b010 << 5 //Data rate 010 : 32 SPS (7:5)
@@ -156,22 +189,22 @@ void requestADC(uint16_t mask) {
     writeRegister(ADS1X15_REG_CONFIG, 0x8148 | mask);
 }
 
-bool writeRegister(uint8_t reg, uint16_t value)
+bool ADS3x::writeRegister(uint8_t reg, uint16_t value)
 {
-    Wire.beginTransmission(ADS1115_ADDRESS);
+    Wire.beginTransmission(address);
     Wire.write((uint8_t)reg);
     Wire.write((uint8_t)(value >> 8));
     Wire.write((uint8_t)(value & 0xFF));
     return (Wire.endTransmission() == 0);
 }
 
-uint16_t readRegister(uint8_t reg)
+uint16_t ADS3x::readRegister(uint8_t reg)
 {
-    Wire.beginTransmission(ADS1115_ADDRESS);
+    Wire.beginTransmission(address);
     Wire.write(reg);
     Wire.endTransmission();
 
-    int rv = Wire.requestFrom((int) ADS1115_ADDRESS, (int) 2);
+    int rv = Wire.requestFrom((int) address, (int) 2);
     if (rv == 2)
     {
         uint16_t value = Wire.read() << 8;
