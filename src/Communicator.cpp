@@ -10,8 +10,24 @@
 ErrorCode errorCode;
 
 void Communicator::loop() {
-    while (readCommand()) {
-        processInstruction();
+    if (formatChanged) {
+        if (format == F_TEXT) {
+            Serial.println("(Ft)");
+        } else {
+            Serial.write(0);
+            Serial.write(IC_FORMAT_CHANGED);
+            Serial.write(F_BINARY);
+        }
+        formatChanged = false;
+    }
+    if (format == F_TEXT) {
+        while (readTextCommand()) {
+            processTextInstruction();
+        }
+    } else {
+        while (readBinaryCommand()) {
+            processBinaryInstruction();
+        }
     }
 }
 
@@ -21,12 +37,13 @@ void sendError_(ErrorCode errorCode) {
     Serial.print(")");
 }
 
-bool Communicator::readCommand() {
+bool Communicator::readTextCommand() {
     commandParsed = false;
     while (Serial.available()) {
         char received = Serial.read();
         if (startDetected) {
             switch (received) {
+                case COMMAND_WITHOUT_ADDR_START_CHAR:
                 case COMMAND_START_CHAR:
                     startDetected = false;
                     curCmdBuffPos = 0;
@@ -39,6 +56,7 @@ bool Communicator::readCommand() {
                     Serial.print(")");
                     Serial.print(received);
                     break;
+                case COMMAND_WITHOUT_ADDR_END_CHAR:
                 case COMMAND_END_CHAR:
                     startDetected = false;
                     if (curCmdBuffPos > 0) {
@@ -60,7 +78,8 @@ bool Communicator::readCommand() {
                     }
             }
         } else {
-            if (received == COMMAND_START_CHAR) {
+            if (received == COMMAND_WITHOUT_ADDR_START_CHAR || received == COMMAND_START_CHAR) {
+                commandWithAddress = received == COMMAND_START_CHAR;
                 curCmdBuffPos = 0;
                 commandParsed = false;
                 startDetected = true;
@@ -95,7 +114,7 @@ void writeData(Communicator *self, Stream &stream) {
  * v - avgData measure voltage with timestamp, V/ms
  * c - avgData measure current with timestamp, A/ms
  * i - inform interval, ms
- * l - avgData measure timestamp, ms
+ * l - last read data timestamp, ms
  * r - measurements interval, ms
  * f - inform format, text/binary
  * n - inform data coefficients
@@ -104,6 +123,9 @@ void writeData(Communicator *self, Stream &stream) {
  * b - current permissible variation, dimensionless int data
  * d - logging is enabled
  * g - log register values
+ * h - err register values
+ * j - external timestamp ID
+ * k - storage state
  * p - avgData prepared data timestamp
  * s - avgData saved data timestamp
  * Second char (for execute):
@@ -111,9 +133,11 @@ void writeData(Communicator *self, Stream &stream) {
  * i - force inform
  * p - mark avgData inform package successfully proceeded
  * e - inform of avgData inform package proceeding error
- * No data results:
+ * No data results or inform messages:
  * S - success
  * E - error (with error code)
+ * I - inform (with data)
+ * F - format changed
  * Errors:
  *   OK:0 - "Ok result, no error.";
  *   E_REQUEST_DATA_NO_VALUE:1 - No value
@@ -128,14 +152,15 @@ void writeData(Communicator *self, Stream &stream) {
  *   E_NO_PACKAGE_WAS_SENT:10 - No inform package was sent to inform about its proceeding!
  *   E_UNDEFINED_CODE:11 - "Code for undefined errors";
  */
-void Communicator::processInstruction() {
+void Communicator::processTextInstruction() {
     bool proceeded = true;
-    if (curCmdBuffPos >= CMD_ID_SIZE + CMD_INSTR_SIZE) {
-        char instrFirst = cmdBuff[CMD_ID_SIZE];
-        char instrSecond = cmdBuff[CMD_ID_SIZE + 1];
+    uint8_t pos = commandWithAddress ? CMD_ID_SIZE : 0;
+    if (curCmdBuffPos >= pos + CMD_INSTR_SIZE) {
+        char instrFirst = cmdBuff[pos];
+        char instrSecond = cmdBuff[pos + 1];
         if (instrFirst  == 'r') {
             if (instrSecond == 't') {
-                sendAnswer('t', [](Communicator *self, Stream &stream) { stream.print( self->reader.getTimeStamp() ); });
+                sendAnswer('t', [](Communicator *self, Stream &stream) { stream.print(self->timeKeeper.getCurrent() ); });
             } else if (instrSecond == 'v' || instrSecond == 'c') {
                 const Data& tmpData = reader.getLastData();
                 if (tmpData.available()) {
@@ -152,7 +177,7 @@ void Communicator::processInstruction() {
             } else if (instrSecond == 'r') {
                 sendAnswer('r', [](Communicator *self, Stream &stream) { stream.print( self->reader.getReadInterval() ); });
             } else if (instrSecond == 'f') {
-                sendAnswer('f', [](Communicator *self, Stream &stream) { stream.print( self->informer.getInformFormat() == IF_BINARY ? "b" : "t"); });
+                sendAnswer('f', [](Communicator *self, Stream &stream) { stream.print(self->informer.getInformFormat() == F_BINARY ? "b" : "t"); });
             } else if (instrSecond == 'n') {
                 sendAnswer('n', [](Communicator *self, Stream &stream) { self->informer.writeInformCoefficients(stream); });
             } else if (instrSecond == 'o') {
@@ -163,34 +188,46 @@ void Communicator::processInstruction() {
                 sendAnswer('b', [](Communicator *self, Stream &stream) { stream.print( self->storage.getDataPermissibleVariation(DCC_CURRENT) ); });
             } else if (instrSecond == 'd') {
                 sendAnswer('d', [](Communicator *self, Stream &stream) { stream.print( self->log.isLogEnabled() ); });
-            } else if (instrSecond == 'g') {
-                sendAnswer('g', [](Communicator *self, Stream &stream) { stream.print( self->log.getLogResister() ); });
             } else if (instrSecond == 'p') {
                 sendAnswer('p', [](Communicator *self, Stream &stream) { stream.print( self->storage.getLastPreparedTimestamp() ); });
             } else if (instrSecond == 's') {
                 sendAnswer('s', [](Communicator *self, Stream &stream) { stream.print( self->storage.getLastSavedTimestamp() ); });
+            } else if (instrSecond == 'j') {
+                sendAnswer('j', [](Communicator *self, Stream &stream) { stream.print( (unsigned long) self->timeKeeper.getCurrentId() ); });
+            } else if (instrSecond == 'g') {
+                sendAnswer('g', [](Communicator *self, Stream &stream) {
+                    stream.print( self->log.getCountingStartTimestamp());
+                    stream.print(";");
+                    self->log.getErrBuffer().print(stream);
+                });
             } else if (instrSecond == 'h') {
-                sendAnswer('h', [](Communicator *self, Stream &stream) { stream.print( (unsigned long) self->reader.getCurrentId() ); });
+                sendAnswer('h', [](Communicator *self, Stream &stream) {
+                    stream.print( self->log.getCountingStartTimestamp());
+                    stream.print(";");
+                    self->log.getLogBuffer().print(stream);
+                });
+            } else if (instrSecond == 'k') {
+                sendAnswer('k', [](Communicator *self, Stream &stream) { self->storage.printState(stream) });
             } else {
                 proceeded = false;
             }
         } else if (instrFirst == 's') {
             if (instrSecond == 't') {
-                processIntValue([](Communicator *self, uint32_t value) { self->reader.syncTime(value); return OK; });
+                processIntValue([](Communicator *self, uint32_t value) { self->timeKeeper.syncTime(value); return OK; });
             } else if (instrSecond == 'i') {
                 processIntValue([](Communicator *self, uint32_t value) { self->informer.setInformInterval(value); return OK; });
             } else if (instrSecond == 'r') {
                 processIntValue([](Communicator *self, uint32_t value) { self->reader.setReadInterval(value); return OK; });
             } else if (instrSecond == 'f') {
-                processIntValue([](Communicator *self, uint32_t value) { self->informer.setInformFormat( value > 0 ? IF_BINARY : IF_TEXT); return OK; });
+                processIntValue([](Communicator *self, uint32_t value) { self->informer.setInformFormat( value > 0 ? F_BINARY : F_TEXT); return OK; });
             } else if (instrSecond == 'a') {
                 processIntValue([](Communicator *self, uint32_t value) { self->storage.setDataPermissibleVariation(DCC_VOLTAGE, value); return OK; });
             } else if (instrSecond == 'b') {
                 processIntValue([](Communicator *self, uint32_t value) { self->storage.setDataPermissibleVariation(DCC_CURRENT, value); return OK; });
             } else if (instrSecond == 'd') {
                 processIntValue([](Communicator *self, uint32_t value) { self->log.setLogEnabled(value > 0); return OK; });
-            } else if (instrSecond == 'h') {
-                processIntValue([](Communicator *self, uint32_t value) { self->reader.setCurrentId(value > 0); return OK; });
+            } else if (instrSecond == 'j') {
+                processIntValue([](Communicator *self, uint32_t value) { self->timeKeeper.setCurrentId(value); return OK; });
             } else {
                 proceeded = false;
             }
@@ -214,6 +251,10 @@ void Communicator::processInstruction() {
                     sendError(result);
                 }
             }
+        } else if (instrFirst == 'b') {
+            format = F_BINARY;
+            formatChanged = true;
+            informer.setInformFormat(F_BINARY);
         }
     }
     if (!proceeded) {
@@ -222,7 +263,8 @@ void Communicator::processInstruction() {
 }
 
 size_t Communicator::getData(char **res) {
-    uint8_t dataStartPos = CMD_ID_SIZE + CMD_INSTR_SIZE;
+    uint8_t pos = commandWithAddress ? CMD_ID_SIZE : 0;
+    uint8_t dataStartPos = pos + CMD_INSTR_SIZE;
     if (commandParsed && curCmdBuffPos > dataStartPos) {
         *res = cmdBuff + dataStartPos;
         return curCmdBuffPos - dataStartPos;
@@ -263,12 +305,71 @@ void Communicator::sendError(ErrorCode code) {
 }
 
 void Communicator::sendAnswer(char answerCodeChar, void (*writer)(Communicator *self, Stream &stream)) {
-    Serial.print("(");
-    Serial.write(cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
+    if (commandWithAddress) {
+        Serial.print("(");
+        Serial.write(cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
+    } else {
+        Serial.print("[");
+    }
     Serial.print(answerCodeChar);
     if (writer != NULL) {
         writer(this, Serial);
     }
-    Serial.print(")");
+    if (commandWithAddress) {
+        Serial.print(")");
+    } else {
+        Serial.print("]");
+    }
+}
+
+bool Communicator::readBinaryCommand() {
+    uint8_t available = Serial.available();
+    if (available) {
+        if (Serial.read() != IC_NONE) {
+            Serial.write(IC_NONE);
+            Serial.write(IC_ERROR);
+            Serial.write(E_INSTRUCTION_WRONG_START);
+            return false;
+        }
+        curCmdBuffPos = 0;
+        commandParsed = false;
+        available = Serial.available();
+        if (available == 0) {
+            Serial.write(IC_NONE);
+            Serial.write(IC_ERROR);
+            Serial.write(E_COMMAND_EMPTY);
+            return false;
+        }
+        if (available > CMD_BUFF_SIZE) {
+            while (Serial.available()) Serial.read();
+            Serial.write(IC_NONE);
+            Serial.write(IC_ERROR);
+            Serial.write(E_COMMAND_SIZE_OVERFLOW);
+            return false;
+        }
+        Serial.readBytes(cmdBuff, available);
+        curCmdBuffPos += available;
+        bool commandUnrecognized = false;
+        if (curCmdBuffPos < 2) {
+            commandUnrecognized = true;
+        } else {
+            uint8_t firstCode = cmdBuff[0];
+            commandUnrecognized = firstCode != IC_READ && firstCode != IC_SET && firstCode != IC_EXECUTE && firstCode != IC_FORMAT_CHANGED;
+        }
+        if (commandUnrecognized) {
+            Serial.write(IC_NONE);
+            Serial.write(IC_ERROR);
+            Serial.write(E_INSTRUCTION_UNRECOGIZED);
+            return false;
+        }
+        commandParsed = true;
+        return true;
+
+    }
+    return false;
+}
+
+void Communicator::processBinaryInstruction() {
+
 }
 

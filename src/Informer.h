@@ -11,11 +11,6 @@
 
 
 
-enum InformFormat {
-    IF_TEXT = 0,
-    IF_BINARY = 1
-};
-
 static EEPROMStorage *pStorage;
 
 class Informer {
@@ -28,9 +23,9 @@ public:
     ErrorCode proceeded();
     ErrorCode proceedError();
     void setInformInterval(uint32_t value);
-    void setInformFormat(InformFormat value);
+    void setInformFormat(Format value);
     uint32_t getInformInterval();
-    InformFormat getInformFormat();
+    Format getInformFormat();
     void writeInformOrder(Stream &stream);
     void writeInformCoefficients(Stream &stream);
 private:
@@ -38,7 +33,7 @@ private:
     EEPROMStorage &storage;
     Log &log;
 
-    InformFormat informFormat = IF_TEXT;
+    Format informFormat = F_TEXT;
     uint32_t informInterval = 0;
     uint32_t lastInformTime = 0;
 

@@ -10,6 +10,7 @@
 #include "EEPROMStorage.h"
 #include "ADS.h"
 #include "Log.h"
+#include "TimeKeeper.h"
 
 
 #define READER_ADS1115_ADDRESS    0x48
@@ -23,18 +24,15 @@ enum ReadMode {
 
 class Reader {
 public:
-    Reader(EEPROMStorage &storage, Log &log): storage(storage), log(log), ads(ADS1115_READY_PIN_DEFAULT) {}
+    Reader(EEPROMStorage &storage, Log &log, TimeKeeper &timeKeeper): storage(storage), log(log), timeKeeper(timeKeeper),
+        ads(ADS1115_READY_PIN_DEFAULT) {}
     void init();
     void loop();
     const Data& getLastData();
     void setReadInterval(uint32_t value);
-    void syncTime(uint32_t value);
     uint32_t getReadInterval() const;
     uint32_t getLastReadTimeStamp() const;
-    uint32_t getTimeStamp() const;
     ErrorCode performRead();
-    uint32_t getCurrentId() const;
-    void setCurrentId(uint32_t value);
 
     static float getCoefficient(ReadMode mode);
     static float deserializeCurrent(const Data *data);
@@ -42,14 +40,12 @@ public:
 private:
     EEPROMStorage &storage;
     Log &log;
+    TimeKeeper &timeKeeper;
     ADS3x ads;
 
 
-    uint64_t lastRead = 0;
+    uint32_t lastRead = 0;
     uint32_t readInterval = 5000;
-    uint32_t baseTime = 0;
-    uint64_t baseLocalTime = 0;
-    uint32_t currentId = 0;
     ReadMode readMode = M_WAIT;
     bool modeRequested = false;
     Data currData;

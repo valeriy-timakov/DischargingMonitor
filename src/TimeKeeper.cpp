@@ -27,12 +27,30 @@ void initExternalCounter0() {
 }
 
 void TimeKeeper::init() {
-    cli();
-    initOscilatorCounter2();
-    initExternalCounter0();
-    sei();
+//    cli();
+//    initOscilatorCounter2();
+//    initExternalCounter0();
+//    sei();
 }
 
-uint64_t TimeKeeper::millis() {
+uint64_t TimeKeeper::_millis() {
     return time;
+}
+
+
+uint32_t TimeKeeper::getCurrent() const {
+    return (uint32_t)( baseTime + (millis() - baseLocalTime) );
+}
+
+void TimeKeeper::syncTime(uint32_t value) {
+    baseTime = value;
+    baseLocalTime = millis();
+}
+
+void TimeKeeper::setCurrentId(uint32_t value) {
+    currentId = value;
+}
+
+uint32_t TimeKeeper::getCurrentId() const {
+    return currentId;
 }

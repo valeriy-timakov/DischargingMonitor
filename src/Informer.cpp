@@ -44,7 +44,7 @@ ErrorCode Informer::inform() {
         return E_INFORM_PACKAGE_ALREADY_SENT;
     }
     if (storage.prepareData()) {
-        if (informFormat == IF_BINARY) {
+        if (informFormat == F_BINARY) {
             const uint8_t* data = storage.getBuffer();
             uint16_t bytesCount = storage.getBufferSize();
             uint16_t hash = 0;
@@ -56,15 +56,12 @@ ErrorCode Informer::inform() {
                 hash += data[i] << 8;
             }
             Serial.write(0);
-            Serial.write(0);
-            Serial.write(0);
+            Serial.write(IC_INFORM);
             Serial.write(bytesCount);
             Serial.write(hash);
             Serial.write(data, bytesCount);
             Serial.write(0);
-            Serial.write(0);
-            Serial.write(0);
-            Serial.write(1);
+            Serial.write(IC_INFORM);
         } else {
             Serial.print("(");
             Serial.print('I');
@@ -98,7 +95,7 @@ uint32_t Informer::getInformInterval() {
     return informInterval;
 }
 
-InformFormat Informer::getInformFormat() {
+Format Informer::getInformFormat() {
     return informFormat;
 }
 
@@ -106,7 +103,7 @@ void Informer::setInformInterval(uint32_t value) {
     informInterval = value;
 }
 
-void Informer::setInformFormat(InformFormat value) {
+void Informer::setInformFormat(Format value) {
     informFormat = value;
 }
 

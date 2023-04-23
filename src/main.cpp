@@ -9,20 +9,20 @@
 
 #define CS_PIN 10
 
-//TimeKeeper tk;
+TimeKeeper tk;
 LedBlink led(A0);
-Log logger;
+Log logger(tk);
 EEPROMStorage storage(CS_PIN, logger);
-Reader reader(storage, logger);
+Reader reader(storage, logger, tk);
 Informer informer(storage, logger);
-Communicator communicator(informer, reader, storage, logger);
+Communicator communicator(informer, reader, storage, logger, tk);
 
 void setup() {
     Serial.begin(9600);
     Wire.setClock(100000);
     Wire.begin();
     Serial.print("Starting...");
-    //tk.init();
+    tk.init();
     led.init();
     storage.init();
     reader.init();

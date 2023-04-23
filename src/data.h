@@ -12,6 +12,14 @@ enum CompareConfigIdx {
     DCC_VOLTAGE = 1
 };
 
+enum Format {
+    F_TEXT = 0,
+    F_BINARY = 1
+};
+
+const uint32_t MAX_U32_VALUE = 0xFFFFFFFF;
+const uint16_t MAX_U16_VALUE = 0xFFFF;
+
 struct Data {
     uint16_t voltage;
     uint16_t current;
@@ -46,8 +54,43 @@ enum ErrorCode {
     E_COMMAND_EMPTY = 12,
     E_COMMAND_SIZE_OVERFLOW = 13,
     E_COMMAND_END_WITHOUT_START = 14,
-    E_UNDEFINED_CODE = 15,
-    S_ALREADY_SENT = -1
+    E_CHECK_FAILED_AFTER_WRITE = 15,
+    E_INSTRUCTION_WRONG_START = 16,
+    E_WRITE_MAX_ATTEMPTS_EXCEDED = 17,
+    E_UNDEFINED_CODE = 100
+};
+
+enum InstructionCode {
+    IC_NONE = 0,
+    IC_READ = 1,
+    IC_SET = 2,
+    IC_EXECUTE = 3,
+    IC_INFORM = 4,
+    IC_SUCCESS = 5,
+    IC_ERROR = 6,
+    IC_FORMAT_CHANGED = 7,
+    IC_REBOOT = 8,
+    IC_UNKNOWN = 9
+};
+
+enum InstructionDataCode {
+    IDC_NONE = 0,
+    IDC_VOLTAGE = 1,
+    IDC_CURRENT = 2,
+    IDC_TIME = 3,
+    IDC_LAST_READ_TIME = 4,
+    IDC_INFORM_INTERVAL = 5,
+    IDC_MEASUREMENTS_INTERVAL = 6,
+    IDC_VOLTAGE_PERMISSIBLE_VARIATION = 7,
+    IDC_CURRENT_PERMISSIBLE_VARIATION = 8,
+    IDC_LOG_ENABLED = 9,
+    IDC_INFORM_DATA_COEFFICIENTS = 10,
+    IDC_LOG_REGISTER_VALUES = 11,
+    IDC_ERR_REGISTER_VALUES = 12,
+    IDC_AVG_DATA_PREPARED_DATA_TIMESTAMP = 13,
+    IDC_AVG_DATA_SAVED_DATA_TIMESTAMP = 14,
+    IDC_EXTERNAL_TIMESTAMP_ID = 15,
+    IDC_UNKNOWN = 20
 };
 
 

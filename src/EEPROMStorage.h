@@ -84,6 +84,8 @@ public:
     uint8_t getDataPermissibleVariation(CompareConfigIdx cci);
     uint32_t getLastPreparedTimestamp();
     uint32_t getLastSavedTimestamp();
+
+    void printState(Stream &stream);
 };
 
 

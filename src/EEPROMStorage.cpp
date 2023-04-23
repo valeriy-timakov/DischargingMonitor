@@ -31,11 +31,15 @@ void EEPROMStorage::loop() {
                 writeTryCount = 0;
                 log.log(LB_PAGE_CHECKED);
             } else {
+                log.error(E_CHECK_FAILED_AFTER_WRITE);
                 checkFailCount++;
             }
         }
         if (!dataChecked) {
             writeTryCount++;
+            if (writeTryCount == MAX_WRITE_FAIL_COUNT) {
+                log.error(E_WRITE_MAX_ATTEMPTS_EXCEDED);
+            }
         }
     }
 }
@@ -158,11 +162,16 @@ uint32_t EEPROMStorage::getLastSavedTimestamp() {
     }
 }
 
-
-
-
-
-
+void EEPROMStorage::printState(Stream &stream) {
+    stream.print(nextPageToSave);
+    stream.print(";");
+    stream.print(nextPageToRead);
+    stream.print(";");
+    stream.print(currPosition);
+    stream.print(";");
+    stream.print(eepromOverflow ? 'o' : 'n');
+    stream.print(";");
+}
 
 
 bool IntergalData::notStarted() const {

@@ -55,18 +55,18 @@ void Reader::loop() {
             readMode = conf.nextMode;
             if (readMode == M_WAIT) {
                 log.log(LB_READ_SWITHCED_TO_WAIT);
-                currData.timestamp = (currData.timestamp + getTimeStamp()) / 2;
+                currData.timestamp = (currData.timestamp + timeKeeper.getCurrent()) / 2;
                 storage.add(currData);
             }
             modeRequested = false;
-        } else if (millis() - lastRead > READ_TIME_OUT) {
+        } else if (timeKeeper.getCurrent() - lastRead > READ_TIME_OUT) {
             log.log(LB_READ_TIMEOUT);
             log.error(E_SENSOR_READ_TIME_OUT);
             modeRequested = false;
         }
     } else {
         if (readMode == M_WAIT) {
-            if (millis() - lastRead > readInterval) {
+            if (timeKeeper.getCurrent() - lastRead > readInterval) {
                 log.log(LB_READ_SWITCHED_TO_VOLTAGE);
                 readMode = M_VOLTAGE;
             }
@@ -74,8 +74,8 @@ void Reader::loop() {
             ReadData conf = readConfig[readMode];
             if (ads.requestValue(conf.pin, conf.gain)) {
                 log.log(LB_READ_REQUESTED);
-                lastRead = millis();
-                currData.timestamp = getTimeStamp();
+                lastRead = timeKeeper.getCurrent();
+                currData.timestamp = lastRead;
                 modeRequested = true;
             } else {
                 log.log(LB_READ_REQUEST_FAILED);
@@ -86,11 +86,7 @@ void Reader::loop() {
 }
 
 uint32_t Reader::getLastReadTimeStamp() const {
-    return (uint32_t)( baseTime + (lastRead - baseLocalTime) );
-}
-
-uint32_t Reader::getTimeStamp() const {
-    return (uint32_t)( baseTime + (millis() - baseLocalTime) );
+    return lastRead;
 }
 
 float Reader::getCoefficient(ReadMode mode) {
@@ -119,11 +115,6 @@ const Data& Reader::getLastData() {
     }
 }
 
-void Reader::syncTime(uint32_t value) {
-    baseTime = value;
-    baseLocalTime = millis();
-}
-
 uint32_t Reader::getReadInterval() const {
     return readInterval;
 }
@@ -139,12 +130,4 @@ ErrorCode Reader::performRead() {
     } else {
         return E_SENSOR_READ_ALREADY_IN_PROGRESS;
     }
-}
-
-void Reader::setCurrentId(uint32_t value) {
-    currentId = value;
-}
-
-uint32_t Reader::getCurrentId() const {
-    return currentId;
 }
