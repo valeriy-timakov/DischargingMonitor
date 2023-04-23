@@ -33,8 +33,8 @@ public:
     uint32_t getLastReadTimeStamp() const;
     uint32_t getTimeStamp() const;
     ErrorCode performRead();
-    uint64_t getCurrentId() const;
-    void setCurrentId(uint64_t value);
+    uint32_t getCurrentId() const;
+    void setCurrentId(uint32_t value);
 
     static float getCoefficient(ReadMode mode);
     static float deserializeCurrent(const Data *data);
@@ -46,10 +46,10 @@ private:
 
 
     uint64_t lastRead = 0;
-    uint16_t readInterval = 5000;
+    uint32_t readInterval = 5000;
     uint32_t baseTime = 0;
     uint64_t baseLocalTime = 0;
-    uint64_t currentId = 0;
+    uint32_t currentId = 0;
     ReadMode readMode = M_WAIT;
     bool modeRequested = false;
     Data currData;

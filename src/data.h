@@ -7,10 +7,19 @@
 
 #include <Arduino.h>
 
+enum CompareConfigIdx {
+    DCC_CURRENT = 0,
+    DCC_VOLTAGE = 1
+};
+
 struct Data {
     uint16_t voltage;
     uint16_t current;
     uint32_t timestamp;
+
+    uint16_t value(CompareConfigIdx idx) const {
+        return idx == DCC_CURRENT ? current : voltage;
+    }
 
 public:
     bool available() const {

@@ -5,6 +5,16 @@
 #include "utils.h"
 
 
+void dbgData(Data &data) {
+    Serial.print("(");
+    Serial.print(Reader::deserializeVoltage(&data), 4);
+    Serial.print(";");
+    Serial.print(Reader::deserializeCurrent(&data), 7);
+    Serial.print(";");
+    Serial.print(data.timestamp);
+    Serial.println(")");
+}
+
 uint32_t atoi(const char* str, int len) {
     uint32_t ret = 0;
     uint8_t charValue;

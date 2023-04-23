@@ -28,6 +28,7 @@ enum LogBit {
     LB_READ_SWITCHED_TO_VOLTAGE= 16,
     LB_READ_REQUESTED = 17,
     LB_READ_REQUEST_FAILED = 18,
+    LB_ADD_OVERFLOW = 19,
 };
 
 class Log {

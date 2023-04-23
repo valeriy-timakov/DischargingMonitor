@@ -70,6 +70,7 @@ ErrorCode Informer::inform() {
         } else {
             Serial.print("(");
             Serial.print('I');
+            pStorage = &storage;
             writeInform(Serial);
             Serial.print(")");
         }

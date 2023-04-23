@@ -14,5 +14,6 @@ void shift(T *data, uint8_t last, uint8_t size);
 
 class utils {};
 
+void dbgData(Data &data);
 
 #endif //UPS_UTILS_H

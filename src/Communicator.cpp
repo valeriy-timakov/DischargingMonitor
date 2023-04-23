@@ -103,10 +103,10 @@ void writeData(Communicator *self, Stream &stream) {
  * e - execute
  * Second char (for read/set):
  * t - current timestamp
- * v - last measure voltage with timestamp, V/ms
- * c - last measure current with timestamp, A/ms
+ * v - avgData measure voltage with timestamp, V/ms
+ * c - avgData measure current with timestamp, A/ms
  * i - inform interval, ms
- * l - last measure timestamp, ms
+ * l - avgData measure timestamp, ms
  * r - measurements interval, ms
  * f - inform format, text/binary
  * n - inform data coefficients
@@ -115,13 +115,13 @@ void writeData(Communicator *self, Stream &stream) {
  * b - current permissible variation, dimensionless int data
  * d - logging is enabled
  * g - log register values
- * p - last prepared data timestamp
- * s - last saved data timestamp
+ * p - avgData prepared data timestamp
+ * s - avgData saved data timestamp
  * Second char (for execute):
  * r - force measurement
  * i - force inform
- * p - mark last inform package successfully proceeded
- * e - inform of last inform package proceeding error
+ * p - mark avgData inform package successfully proceeded
+ * e - inform of avgData inform package proceeding error
  * No data results:
  * S - success
  * E - error (with error code)

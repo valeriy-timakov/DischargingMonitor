@@ -85,10 +85,6 @@ void Reader::loop() {
     }
 }
 
-uint32_t Reader::getReadInterval() const {
-    return readInterval;
-}
-
 uint32_t Reader::getLastReadTimeStamp() const {
     return (uint32_t)( baseTime + (lastRead - baseLocalTime) );
 }
@@ -128,6 +124,10 @@ void Reader::syncTime(uint32_t value) {
     baseLocalTime = millis();
 }
 
+uint32_t Reader::getReadInterval() const {
+    return readInterval;
+}
+
 void Reader::setReadInterval(uint32_t value) {
     readInterval = value;
 }
@@ -141,10 +141,10 @@ ErrorCode Reader::performRead() {
     }
 }
 
-void Reader::setCurrentId(uint64_t value) {
+void Reader::setCurrentId(uint32_t value) {
     currentId = value;
 }
 
-uint64_t Reader::getCurrentId() const {
+uint32_t Reader::getCurrentId() const {
     return currentId;
 }
