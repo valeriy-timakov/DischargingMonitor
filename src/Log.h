@@ -35,21 +35,21 @@ enum LogBit {
 struct LogRegData {
     uint32_t registerValue;
     uint16_t cycle;
+    uint16_t noActivityCycleCount;
 };
 
 #define LOG_BUFFER_SIZE 10
 
 struct LogBuffer {
-    void print(Stream &stream) const;
-
 public:
+    void print(Stream &stream) const;
     LogBuffer() : pos(0) {}
     void addIfAny(uint32_t registerValue, uint16_t cycle);
-    const LogRegData *getData() const;
 
 private:
     LogRegData data[LOG_BUFFER_SIZE];
     uint8_t pos;
+    uint16_t noActivityCycleCount = 0;
 };
 
 class Log {
@@ -59,14 +59,10 @@ public:
     void log(LogBit logBitNo);
     bool isLogEnabled() const;
     void setLogEnabled(bool value);
-    uint32_t getLogRegister() const;
-    uint32_t getErrRegister() const;
     void init();
     void loop();
     uint32_t getCountingStartTimestamp() const;
-
     const LogBuffer &getLogBuffer() const;
-
     const LogBuffer &getErrBuffer() const;
 
 private:

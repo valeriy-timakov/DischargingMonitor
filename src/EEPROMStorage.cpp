@@ -170,7 +170,6 @@ void EEPROMStorage::printState(Stream &stream) {
     stream.print(currPosition);
     stream.print(";");
     stream.print(eepromOverflow ? 'o' : 'n');
-    stream.print(";");
 }
 
 
@@ -203,7 +202,7 @@ void IntergalData::preAdd(Data &data) {
         avgPeriodStart = data.timestamp;
         avgPeriodEnd = data.timestamp;
     } else if (avgPeriodEnd != data.timestamp) {
-        //log(log)
+        log.error(E_ROUNDING_DATA_ADD_WRONG_TIME);
     }
     lastData = data;
 }

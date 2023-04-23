@@ -207,7 +207,7 @@ void Communicator::processTextInstruction() {
                     self->log.getLogBuffer().print(stream);
                 });
             } else if (instrSecond == 'k') {
-                sendAnswer('k', [](Communicator *self, Stream &stream) { self->storage.printState(stream) });
+                sendAnswer('k', [](Communicator *self, Stream &stream) { self->storage.printState(stream); });
             } else {
                 proceeded = false;
             }

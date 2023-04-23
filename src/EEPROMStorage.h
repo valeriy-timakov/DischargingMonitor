@@ -22,8 +22,9 @@ private:
     uint8_t kV = 1;
     uint8_t kC = 1;
     Data lastData;
+    Log &log;
 public:
-
+    IntergalData(Log &log) : log(log) {}
     bool notStarted() const;
     uint32_t getAvgPeriod() const;
     uint16_t avgValue(CompareConfigIdx idx) const;
@@ -47,15 +48,11 @@ private:
     Data saveBuffer[SAVE_BUFFER_CAPACITY];
     uint8_t currPosition = 0;
     uint8_t writeTryCount = 0;
-
     uint8_t pageBuffer[PAGE_BUFFER_SIZE_BYTES];
     uint16_t nextPageToSave = 0;
     uint16_t nextPageToRead = 0;
     uint8_t dataPermissibleVariation[2];
     bool eepromOverflow = false;
-
-
-
     IntergalData avgData;
 
     void writeData();
@@ -63,6 +60,7 @@ private:
     bool isInPermissibleVariation(Data &data, CompareConfigIdx cci);
 
 public:
+    EEPROMStorage(uint8_t csPin, Log &log) : EEPROM(EEPROM25LC1024(csPin)), log(log), avgData(log) {}
     void loop();
     void add(Data &currData);
     const Data& getLast();
@@ -70,11 +68,6 @@ public:
 
 
     static const uint16_t PAGES_COUNT = 512;
-    EEPROMStorage(uint8_t csPin, Log &log) : EEPROM(EEPROM25LC1024(csPin)), log(log) {
-        for (uint8_t & i : dataPermissibleVariation) i = 0;
-        for (auto & i : saveBuffer) i = Data {0, 0, 0};
-        for (uint8_t & i : pageBuffer) i = 0;
-    }
     void init();
     const uint8_t *getBuffer();
     static uint16_t getBufferSize();

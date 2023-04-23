@@ -47,14 +47,6 @@ void Log::loop() {
     errorsRegister = 0;
 }
 
-uint32_t Log::getLogRegister() const {
-    return logRegister;
-}
-
-uint32_t Log::getErrRegister() const {
-    return errorsRegister;
-}
-
 uint32_t Log::getCountingStartTimestamp() const {
     return countingStartTimestamp;
 }
@@ -70,26 +62,28 @@ const LogBuffer &Log::getErrBuffer() const {
 void LogBuffer::addIfAny(uint32_t registerValue, uint16_t cycle) {
     if (registerValue > 0) {
         data[pos].registerValue = registerValue;
+        data[pos].noActivityCycleCount = noActivityCycleCount;
         data[pos].cycle = cycle;
         if (pos == LOG_BUFFER_SIZE) {
             pos = 0;
         } else {
             pos++;
         }
+        noActivityCycleCount = 0;
+    } else {
+        noActivityCycleCount++;
     }
-}
-
-const LogRegData *LogBuffer::getData() const {
-    return data;
 }
 
 void LogBuffer::print(Stream &stream) const {
     for (int i = 0; i < LOG_BUFFER_SIZE; i++) {
+        stream.print(data[i].noActivityCycleCount);
+        stream.print("|");
         stream.print(data[i].cycle);
         stream.print(":");
         stream.print(data[i].registerValue, BIN);
         if (i < LOG_BUFFER_SIZE - 1) {
-            stream.println(",");
+            stream.print(",");
         }
     }
 }

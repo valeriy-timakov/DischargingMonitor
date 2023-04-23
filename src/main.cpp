@@ -26,6 +26,7 @@ void setup() {
     led.init();
     storage.init();
     reader.init();
+    logger.init();
     Serial.println(" started!");
 }
 
@@ -36,4 +37,5 @@ void loop() {
     storage.loop();
     informer.loop();
     communicator.loop();
+    logger.loop();
 }
