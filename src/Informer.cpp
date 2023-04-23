@@ -34,9 +34,7 @@ void Informer::writeInformCoefficients(Stream &stream) {
 void Informer::loop() {
     if (informInterval > 0 && (millis() - lastInformTime) >= informInterval) {
         log.log(LB_INFORM_STARTED);
-        Serial.println("Tti");
         inform();
-        Serial.println("Nmdl");
         lastInformTime = millis();
     }
 }

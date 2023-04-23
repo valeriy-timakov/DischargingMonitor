@@ -55,8 +55,6 @@ bool Communicator::readCommand() {
                     } else {
                         Serial.print("(E");
                         Serial.print(E_COMMAND_SIZE_OVERFLOW);
-                        Serial.print(": ");
-                        Serial.write(cmdBuff, CMD_ID_SIZE);
                         Serial.print(")");
                         startDetected = false;
                     }
@@ -76,15 +74,6 @@ bool Communicator::readCommand() {
     return false;
 }
 
-/*
-bool Communicator::getCommandId(char **res) {
-    if (commandParsed) {
-        *res = cmdBuff;
-        return min(curCmdBuffPos, CMD_ID_SIZE);
-    }
-    return 0;
-}
-*/
 
 const Data * _tmpData;
 float (*deserializer)(const Data *);
