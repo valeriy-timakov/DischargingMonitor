@@ -6,6 +6,7 @@
 #include "ADS.h"
 #include "data.h"
 #include "Log.h"
+#include "utils.h"
 
 const float baseResistance = 0.130;
 #define R1 9.99
@@ -85,10 +86,6 @@ void Reader::loop() {
     }
 }
 
-uint32_t Reader::getLastReadTimeStamp() const {
-    return lastRead;
-}
-
 float Reader::getCoefficient(ReadMode mode) {
     const ReadData &conf = readConfig[mode];
     return ADS3x::convertToVoltage(1, conf.gain) * conf.cfnt;
@@ -107,12 +104,30 @@ float Reader::deserializeVoltage(const Data *data) {
     return deserializeMilli(data->voltage, M_VOLTAGE);
 }
 
-const Data& Reader::getLastData() {
-    if (readMode == M_WAIT && currData.timestamp != 0) {
-        return currData;
-    } else {
-        return storage.getLast();
-    }
+void Reader::printInformOrder(Stream &stream) {
+    stream.print("v,c,t;");
+}
+
+void Reader::printInformCoefficients(Stream &stream) {
+        stream.print(Reader::getCoefficient(M_VOLTAGE), 5);
+        stream.print(",");
+        stream.print(Reader::getCoefficient(M_CURRENT), 5);
+}
+
+void Reader::printData(const Data &data, Stream &stream) {
+    stream.print(deserializeVoltage(&data), 3);
+    stream.print(',');
+    stream.print(deserializeCurrent(&data), 3);
+    stream.print(',');
+    stream.print(data.timestamp);
+    stream.print(';');
+}
+
+void Reader::writeInformCoefficients(Stream &stream) {
+    float value = Reader::getCoefficient(M_VOLTAGE);
+    sendSerial((uint8_t*)&value, sizeof(value), stream);
+    value = Reader::getCoefficient(M_CURRENT);
+    sendSerial((uint8_t*)&value, sizeof(value), stream);
 }
 
 uint32_t Reader::getReadInterval() const {

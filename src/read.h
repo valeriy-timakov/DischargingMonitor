@@ -28,15 +28,15 @@ public:
         ads(ADS1115_READY_PIN_DEFAULT) {}
     void init();
     void loop();
-    const Data& getLastData();
     void setReadInterval(uint32_t value);
     uint32_t getReadInterval() const;
-    uint32_t getLastReadTimeStamp() const;
     ErrorCode performRead();
-
-    static float getCoefficient(ReadMode mode);
     static float deserializeCurrent(const Data *data);
     static float deserializeVoltage(const Data *data);
+    static void printData(const Data &data, Stream &stream);
+    static void printInformCoefficients(Stream &stream);
+    static void writeInformCoefficients(Stream &stream);
+    static void printInformOrder(Stream &stream);
 private:
     EEPROMStorage &storage;
     Log &log;
@@ -52,6 +52,7 @@ private:
 
 
     static float deserializeMilli(uint16_t relativeValue, ReadMode mode);
+    static float getCoefficient(ReadMode mode);
 
 };
 

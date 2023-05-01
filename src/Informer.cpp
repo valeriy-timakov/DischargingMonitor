@@ -3,75 +3,34 @@
 //
 
 #include "Informer.h"
-#include "read.h"
 
-Stream *pStream;
-
-void write(Data &currData) {
-    pStream->print(Reader::deserializeVoltage(&currData), 3);
-    pStream->print(',');
-    pStream->print(Reader::deserializeCurrent(&currData), 3);
-    pStream->print(',');
-    pStream->print(currData.timestamp);
-    pStream->print(';');
-}
-
-void writeInform(Stream &stream) {
-    pStream = &stream;
-    pStorage->enumerate(write);
-}
-
-void Informer::writeInformOrder(Stream &stream) {
-    stream.print("v,c,t;");
-}
-
-void Informer::writeInformCoefficients(Stream &stream) {
-    stream.print(Reader::getCoefficient(M_VOLTAGE), 5);
-    stream.print(",");
-    stream.print(Reader::getCoefficient(M_CURRENT), 5);
-}
 
 void Informer::loop() {
-    if (informInterval > 0 && (millis() - lastInformTime) >= informInterval) {
-        log.log(LB_INFORM_STARTED);
+    if (informInterval > 0 && ( (millis() - lastInformTime) >= informInterval ) && !packetSent) {
+        Serial.println("Informer::loop");
         inform();
+        log.log(LB_INFORM_STARTED);
         lastInformTime = millis();
     }
 }
 
 ErrorCode Informer::inform() {
+    Serial.println("Informer::inform");
     if (packetSent) {
+        Serial.println("E_INFORM_PACKAGE_ALREADY_SENT");
         return E_INFORM_PACKAGE_ALREADY_SENT;
     }
     if (storage.prepareData()) {
-        if (informFormat == F_BINARY) {
-            const uint8_t* data = storage.getBuffer();
-            uint16_t bytesCount = storage.getBufferSize();
-            uint16_t hash = 0;
-            uint16_t i = 0;
-            for (; i < bytesCount - 1; i += 2) {
-                hash += data[i + 1] + ( data[i] << 8 );
-            }
-            if (i < bytesCount) {
-                hash += data[i] << 8;
-            }
-            Serial.write(0);
-            Serial.write(IC_INFORM);
-            Serial.write(bytesCount);
-            Serial.write(hash);
-            Serial.write(data, bytesCount);
-            Serial.write(0);
-            Serial.write(IC_INFORM);
+        Serial.println("prepareData");
+        if (informFormat == F_TEXT) {
+            storage.printNextSavedDataPage(Serial);
         } else {
-            Serial.print("(");
-            Serial.print('I');
-            pStorage = &storage;
-            writeInform(Serial);
-            Serial.print(")");
+            storage.writeNextSavedDataPage(Serial);
         }
         packetSent = true;
         return OK;
     }
+    Serial.println("E_INFORM_NO_DATA_TO_SEND");
     return E_INFORM_NO_DATA_TO_SEND;
 }
 
@@ -106,5 +65,4 @@ void Informer::setInformInterval(uint32_t value) {
 void Informer::setInformFormat(Format value) {
     informFormat = value;
 }
-
 

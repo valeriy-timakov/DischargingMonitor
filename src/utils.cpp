@@ -5,6 +5,68 @@
 #include "utils.h"
 
 
+
+size_t sendSerial(bool value, Stream &serial) {
+    return serial.write(value ? 1 : 0);
+}
+
+size_t sendSerial(uint8_t value, Stream &serial) {
+    return serial.write(value);
+}
+
+size_t sendSerial(InstructionCode value, Stream &serial) {
+    return sendSerial((uint8_t)value, serial);
+}
+
+size_t sendSerial(InstructionDataCode value, Stream &serial) {
+    return sendSerial((uint8_t)value, serial);
+}
+
+size_t sendSerial(Format value, Stream &serial) {
+    return sendSerial((uint8_t)value, serial);
+}
+
+size_t sendSerial(ErrorCode buffer, Stream &serial) {
+    return serial.write(buffer);
+}
+
+size_t sendSerial(uint16_t value, Stream &serial) {
+    uint8_t sum = 0;
+    sum += serial.write(value >> 8);
+    sum += serial.write(value & 0xFF);
+    return sum;
+}
+
+size_t sendSerial(uint32_t value, Stream &serial) {
+    uint8_t sum = 0;
+    sum += serial.write(value >> 24);
+    sum += serial.write((value >> 16) & 0xFF);
+    sum += serial.write((value >> 8) & 0xFF);
+    sum += serial.write(value & 0xFF);
+    return sum;
+}
+
+size_t sendSerial(uint64_t value, Stream &serial) {
+    uint8_t sum = 0;
+    sum += serial.write((uint8_t)(value >> 56));
+    sum += serial.write((uint8_t)((value >> 48) & 0xFF));
+    sum += serial.write((uint8_t)((value >> 40) & 0xFF));
+    sum += serial.write((uint8_t)((value >> 32) & 0xFF));
+    sum += serial.write((uint8_t)((value >> 24) & 0xFF));
+    sum += serial.write((uint8_t)((value >> 16) & 0xFF));
+    sum += serial.write((uint8_t)((value >> 8) & 0xFF));
+    sum += serial.write((uint8_t)(value & 0xFF));
+    return sum;
+}
+
+size_t sendSerial(const uint8_t *buffer, size_t size, Stream &serial) {
+    return serial.write(buffer, size);
+}
+
+size_t sendSerial(const char *buffer, Stream &serial) {
+    return serial.write(buffer);
+}
+
 void dbgData(Data &data) {
     Serial.print("(");
     Serial.print(Reader::deserializeVoltage(&data), 4);

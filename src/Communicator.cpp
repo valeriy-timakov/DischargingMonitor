@@ -14,9 +14,9 @@ void Communicator::loop() {
         if (format == F_TEXT) {
             Serial.println("(Ft)");
         } else {
-            Serial.write(0);
-            Serial.write(IC_FORMAT_CHANGED);
-            Serial.write(F_BINARY);
+            sendSerial(IC_NONE);
+            sendSerial(IC_FORMAT_CHANGED);
+            sendSerial(F_BINARY);
         }
         formatChanged = false;
     }
@@ -51,7 +51,7 @@ bool Communicator::readTextCommand() {
                     Serial.print(E_NEW_COMMAND_INSIDE);
                     Serial.print(": ");
                     if (curCmdBuffPos > 0) {
-                        Serial.write(cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
+                        sendSerial((uint8_t*) cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
                     }
                     Serial.print(")");
                     Serial.print(received);
@@ -93,14 +93,10 @@ bool Communicator::readTextCommand() {
     return false;
 }
 
-
-const Data * _tmpData;
-float (*deserializer)(const Data *);
-
-void writeData(Communicator *self, Stream &stream) {
-    stream.print(deserializer(_tmpData), 3);
+void writeData(const Data *data, float (*deserializer)(const Data *), Stream &stream) {
+    stream.print(deserializer(data), 3);
     stream.print(',');
-    stream.print(_tmpData->timestamp);
+    stream.print(data->timestamp);
 }
 
 /**
@@ -122,10 +118,11 @@ void writeData(Communicator *self, Stream &stream) {
  * a - voltage permissible variation, dimensionless int data
  * b - current permissible variation, dimensionless int data
  * d - logging is enabled
- * g - log register values
- * h - err register values
+ * g - err register values
+ * h - log register values
  * j - external timestamp ID
  * k - storage state
+ * m - get not saved data
  * p - avgData prepared data timestamp
  * s - avgData saved data timestamp
  * Second char (for execute):
@@ -161,27 +158,34 @@ void Communicator::processTextInstruction() {
         if (instrFirst  == 'r') {
             if (instrSecond == 't') {
                 sendAnswer('t', [](Communicator *self, Stream &stream) { stream.print(self->timeKeeper.getCurrent() ); });
-            } else if (instrSecond == 'v' || instrSecond == 'c') {
-                const Data& tmpData = reader.getLastData();
-                if (tmpData.available()) {
-                    _tmpData = &tmpData;
-                    deserializer = instrSecond == 'v' ? reader.deserializeVoltage : reader.deserializeCurrent;
-                    sendAnswer('v', writeData);
+            } else if (instrSecond == 'v' || instrSecond == 'c' || instrSecond == 'l') {
+                if (storage.getLast().available()) {
+                    if (instrSecond == 'l') {
+                        sendAnswer('l', [](Communicator *self, Stream &stream) {
+                            stream.print( self->storage.getLast().timestamp );
+                        });
+                    } else if (instrSecond == 'v') {
+                        sendAnswer('v', [](Communicator *self, Stream &stream) {
+                            writeData( &self->storage.getLast(), self->reader.deserializeVoltage, stream);
+                        });
+                    } else if (instrSecond == 'c') {
+                        sendAnswer('c', [](Communicator *self, Stream &stream) {
+                            writeData( &self->storage.getLast(), self->reader.deserializeCurrent, stream);
+                        });
+                    }
                 } else {
                     sendError(E_READ_NO_DATA_TO_SEND);
                 }
             } else if (instrSecond == 'i') {
                 sendAnswer('i', [](Communicator *self, Stream &stream) { stream.print( self->informer.getInformInterval() ); });
-            } else if (instrSecond == 'l') {
-                sendAnswer('l', [](Communicator *self, Stream &stream) { stream.print( self->reader.getLastReadTimeStamp() ); });
             } else if (instrSecond == 'r') {
                 sendAnswer('r', [](Communicator *self, Stream &stream) { stream.print( self->reader.getReadInterval() ); });
             } else if (instrSecond == 'f') {
-                sendAnswer('f', [](Communicator *self, Stream &stream) { stream.print(self->informer.getInformFormat() == F_BINARY ? "b" : "t"); });
+                sendAnswer('f', [](Communicator *self, Stream &stream) { stream.print(self->informer.getInformFormat() == F_TEXT ? "t" : "b"); });
             } else if (instrSecond == 'n') {
-                sendAnswer('n', [](Communicator *self, Stream &stream) { self->informer.writeInformCoefficients(stream); });
+                sendAnswer('n', [](Communicator *self, Stream &stream) { self->reader.printInformCoefficients(stream); });
             } else if (instrSecond == 'o') {
-                sendAnswer('o', [](Communicator *self, Stream &stream) { self->informer.writeInformOrder(stream); });
+                sendAnswer('o', [](Communicator *self, Stream &stream) { self->reader.printInformOrder(stream); });
             } else if (instrSecond == 'a') {
                 sendAnswer('a', [](Communicator *self, Stream &stream) { stream.print( self->storage.getDataPermissibleVariation(DCC_VOLTAGE) ); });
             } else if (instrSecond == 'b') {
@@ -208,6 +212,8 @@ void Communicator::processTextInstruction() {
                 });
             } else if (instrSecond == 'k') {
                 sendAnswer('k', [](Communicator *self, Stream &stream) { self->storage.printState(stream); });
+            } else if (instrSecond == 'm') {
+                sendAnswer('m', [](Communicator *self, Stream &stream) { self->storage.printNotSaved(stream); });
             } else {
                 proceeded = false;
             }
@@ -251,10 +257,13 @@ void Communicator::processTextInstruction() {
                     sendError(result);
                 }
             }
-        } else if (instrFirst == 'b') {
-            format = F_BINARY;
-            formatChanged = true;
-            informer.setInformFormat(F_BINARY);
+        } else if (instrFirst == 'f') {
+            processIntValue([](Communicator *self, uint32_t value) {
+                self->format = value == 0 ? F_TEXT : F_BINARY;
+                self->formatChanged = true;
+                self->informer.setInformFormat(self->format);
+                return OK;
+            });
         }
     }
     if (!proceeded) {
@@ -307,7 +316,7 @@ void Communicator::sendError(ErrorCode code) {
 void Communicator::sendAnswer(char answerCodeChar, void (*writer)(Communicator *self, Stream &stream)) {
     if (commandWithAddress) {
         Serial.print("(");
-        Serial.write(cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
+        sendSerial((uint8_t*) cmdBuff, min(curCmdBuffPos, CMD_ID_SIZE));
     } else {
         Serial.print("[");
     }
@@ -326,25 +335,25 @@ bool Communicator::readBinaryCommand() {
     uint8_t available = Serial.available();
     if (available) {
         if (Serial.read() != IC_NONE) {
-            Serial.write(IC_NONE);
-            Serial.write(IC_ERROR);
-            Serial.write(E_INSTRUCTION_WRONG_START);
+            sendSerial(IC_NONE);
+            sendSerial(IC_ERROR);
+            sendSerial(E_INSTRUCTION_WRONG_START);
             return false;
         }
         curCmdBuffPos = 0;
         commandParsed = false;
         available = Serial.available();
         if (available == 0) {
-            Serial.write(IC_NONE);
-            Serial.write(IC_ERROR);
-            Serial.write(E_COMMAND_EMPTY);
+            sendSerial(IC_NONE);
+            sendSerial(IC_ERROR);
+            sendSerial(E_COMMAND_EMPTY);
             return false;
         }
         if (available > CMD_BUFF_SIZE) {
             while (Serial.available()) Serial.read();
-            Serial.write(IC_NONE);
-            Serial.write(IC_ERROR);
-            Serial.write(E_COMMAND_SIZE_OVERFLOW);
+            sendSerial(IC_NONE);
+            sendSerial(IC_ERROR);
+            sendSerial(E_COMMAND_SIZE_OVERFLOW);
             return false;
         }
         Serial.readBytes(cmdBuff, available);
@@ -357,9 +366,9 @@ bool Communicator::readBinaryCommand() {
             commandUnrecognized = firstCode != IC_READ && firstCode != IC_SET && firstCode != IC_EXECUTE && firstCode != IC_FORMAT_CHANGED;
         }
         if (commandUnrecognized) {
-            Serial.write(IC_NONE);
-            Serial.write(IC_ERROR);
-            Serial.write(E_INSTRUCTION_UNRECOGIZED);
+            sendSerial(IC_NONE);
+            sendSerial(IC_ERROR);
+            sendSerial(E_INSTRUCTION_UNRECOGIZED);
             return false;
         }
         commandParsed = true;
@@ -370,6 +379,229 @@ bool Communicator::readBinaryCommand() {
 }
 
 void Communicator::processBinaryInstruction() {
-
+    uint8_t mainCode = cmdBuff[0];
+    uint8_t instrCode = cmdBuff[1];
+    ErrorCode result;
+    switch (mainCode) {
+        case IC_READ:
+            result = processBinaryRead(instrCode);
+            break;
+        case IC_SET:
+            if (curCmdBuffPos < 3) {
+                result = E_REQUEST_DATA_NO_VALUE;
+                return;
+            }
+            result = processBinarySet(instrCode);
+            if (result == OK) {
+                sendSuccess();
+            }
+            break;
+        case IC_EXECUTE:
+            result = processBinaryExecute(instrCode);
+            if (result == OK) {
+                sendSuccess();
+            }
+            break;
+        case IC_FORMAT_CHANGED:
+            if (curCmdBuffPos < 3) {
+                sendError(E_REQUEST_DATA_NO_VALUE);
+                return;
+            }
+            format = getByteFromData() == 0 ? F_TEXT : F_BINARY;
+            informer.setInformFormat(format);
+            formatChanged = true;
+            result = OK;
+            break;
+    }
+    if (result != OK) {
+        sendError(result);
+    }
 }
 
+void startBinaryAnswer(InstructionDataCode code) {
+    sendSerial(IC_NONE);
+    sendSerial(code);
+}
+
+ErrorCode sendDataIfAvailable(const Data &data, InstructionDataCode code) {
+    if (data.available()) {
+        startBinaryAnswer(code);
+        sendSerial(data.current);
+        sendSerial(data.voltage);
+        sendSerial(data.timestamp);
+        return OK;
+    } else {
+        return E_READ_NO_DATA_TO_SEND;
+    }
+}
+
+ErrorCode Communicator::processBinaryRead(uint8_t code) {
+    switch (code) {
+        case IDC_CURRENT: // c
+        case IDC_VOLTAGE: // v
+        case IDC_LAST_READ_TIME: //l
+            return sendDataIfAvailable(storage.getLast(), (InstructionDataCode) code);
+        case IDC_TIME:  //t
+            startBinaryAnswer(IDC_TIME);
+            sendSerial(timeKeeper.getCurrent());
+            return OK;
+        case IDC_INFORM_INTERVAL:   //i
+            startBinaryAnswer(IDC_INFORM_INTERVAL);
+            sendSerial(informer.getInformInterval());
+            return OK;
+        case IDC_MEASUREMENTS_INTERVAL: //r
+            startBinaryAnswer(IDC_MEASUREMENTS_INTERVAL);
+            sendSerial(reader.getReadInterval());
+            return OK;
+        case IDC_VOLTAGE_PERMISSIBLE_VARIATION: //a
+            startBinaryAnswer(IDC_VOLTAGE_PERMISSIBLE_VARIATION);
+            sendSerial(storage.getDataPermissibleVariation(DCC_VOLTAGE));
+            return OK;
+        case IDC_CURRENT_PERMISSIBLE_VARIATION: //b
+            startBinaryAnswer(IDC_CURRENT_PERMISSIBLE_VARIATION);
+            sendSerial(storage.getDataPermissibleVariation(DCC_CURRENT));
+            return OK;
+        case IDC_LOG_ENABLED: //d
+            startBinaryAnswer(IDC_LOG_ENABLED);
+            sendSerial(log.isLogEnabled());
+            return OK;
+        case IDC_INFORM_DATA_COEFFICIENTS: //n
+            startBinaryAnswer(IDC_INFORM_DATA_COEFFICIENTS);
+            reader.writeInformCoefficients(Serial);
+            return OK;
+        case IDC_LOG_REGISTER_VALUES: //h
+            startBinaryAnswer(IDC_LOG_REGISTER_VALUES);
+            sendSerial(log.getCountingStartTimestamp());
+            log.getLogBuffer().write(Serial);
+            return OK;
+        case IDC_ERR_REGISTER_VALUES: //g
+            startBinaryAnswer(IDC_ERR_REGISTER_VALUES);
+            sendSerial(log.getCountingStartTimestamp());
+            log.getErrBuffer().write(Serial);
+            return OK;
+        case IDC_AVG_DATA_PREPARED_DATA_TIMESTAMP: //p
+            startBinaryAnswer(IDC_AVG_DATA_PREPARED_DATA_TIMESTAMP);
+            sendSerial(storage.getLastPreparedTimestamp());
+            return OK;
+        case IDC_AVG_DATA_SAVED_DATA_TIMESTAMP: //s
+            startBinaryAnswer(IDC_AVG_DATA_SAVED_DATA_TIMESTAMP);
+            sendSerial(storage.getLastSavedTimestamp());
+            return OK;
+        case IDC_EXTERNAL_TIMESTAMP_ID: //j
+            startBinaryAnswer(IDC_EXTERNAL_TIMESTAMP_ID);
+            sendSerial(timeKeeper.getCurrentId());
+            return OK;
+        case IDC_STORAGE_STAGE_DUMP: //k
+            startBinaryAnswer(IDC_STORAGE_STAGE_DUMP);
+            storage.writeState(Serial);
+            return OK;
+        case IDC_NOT_SAVED_DATA: //m
+            startBinaryAnswer(IDC_NOT_SAVED_DATA);
+            storage.writeNotSaved(Serial);
+            return OK;
+    }
+    return E_UNDEFINED_OPERATION;
+}
+
+ErrorCode Communicator::processBinarySet(uint8_t code) {
+    switch (code) {
+        case IDC_TIME: //t
+            if (curCmdBuffPos < 6) {
+                return E_REQUEST_DATA_NO_VALUE;
+            }
+            timeKeeper.syncTime(getIntFromData());
+            return OK;
+        case IDC_INFORM_INTERVAL: //i
+            if (curCmdBuffPos < 6) {
+                return E_REQUEST_DATA_NO_VALUE;
+            }
+            informer.setInformInterval(getIntFromData());
+            return OK;
+        case IDC_MEASUREMENTS_INTERVAL: //r
+            if (curCmdBuffPos < 6) {
+                return E_REQUEST_DATA_NO_VALUE;
+            }
+            reader.setReadInterval(getIntFromData());
+            return OK;
+        case IDC_VOLTAGE_PERMISSIBLE_VARIATION: //a
+            if (curCmdBuffPos < 6) {
+                return E_REQUEST_DATA_NO_VALUE;
+            }
+            storage.setDataPermissibleVariation(DCC_VOLTAGE, getIntFromData());
+            return OK;
+        case IDC_CURRENT_PERMISSIBLE_VARIATION: //b
+            if (curCmdBuffPos < 6) {
+                return E_REQUEST_DATA_NO_VALUE;
+            }
+            storage.setDataPermissibleVariation(DCC_CURRENT, getIntFromData());
+            return OK;
+        case IDC_LOG_ENABLED: //d
+            if (curCmdBuffPos < 3) {
+                return E_REQUEST_DATA_NO_VALUE;
+            }
+            log.setLogEnabled(getByteFromData());
+            return OK;
+        case IDC_EXTERNAL_TIMESTAMP_ID: //j
+            if (curCmdBuffPos < 6) {
+                return E_REQUEST_DATA_NO_VALUE;
+            }
+            timeKeeper.setCurrentId(getIntFromData());
+            return OK;
+    }
+    return E_UNDEFINED_OPERATION;
+}
+
+ErrorCode Communicator::processBinaryExecute(uint8_t code) {
+    switch (code) {
+        case IO_FORCE_INFORM:
+            return informer.inform();
+        case IO_FORCE_MEASUREMENT:
+            return reader.performRead();
+        case IO_MARK_INFORM_HANDLED:
+            return reader.performRead();
+        case IO_MARK_INFORM_HANDLE_ERROR:
+            return reader.performRead();
+    }
+    return E_UNDEFINED_OPERATION;
+}
+
+uint8_t Communicator::getByteFromData() {
+    if (curCmdBuffPos < 3) {
+        return 0;
+    }
+    return cmdBuff[2];
+}
+
+
+uint16_t Communicator::getShortFromData() {
+    if (curCmdBuffPos < 4) {
+        return 0;
+    }
+    uint16_t res = 0;
+    for (int i = 0; i < 2; i++) {
+        ((uint8_t*)&res)[i] = cmdBuff[2 + i];
+    }
+    return res;
+}
+
+uint32_t Communicator::getIntFromData() {
+    if (curCmdBuffPos < 6) {
+        return 0;
+    }
+    uint32_t res = 0;
+    for (int i = 0; i < 4; i++) {
+        ((uint8_t*)&res)[i] = cmdBuff[2 + i];
+    }
+    return res;
+}
+
+uint64_t Communicator::getLongFromData() {
+    if (curCmdBuffPos < 10) {
+        return 0;
+    }
+    uint64_t res = 0;
+    for (int i = 0; i < 8; i++) {
+        ((uint8_t*)&res)[i] = cmdBuff[2 + i];
+    }
+    return res;
+}

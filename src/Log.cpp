@@ -3,6 +3,7 @@
 //
 
 #include "Log.h"
+#include "utils.h"
 
 void Log::error(ErrorCode errorCode) {
     errorsRegister |= 1 << (errorCode - 1);
@@ -86,4 +87,8 @@ void LogBuffer::print(Stream &stream) const {
             stream.print(",");
         }
     }
+}
+
+void LogBuffer::write(Stream &stream) const {
+    sendSerial((uint8_t*) data, sizeof data, stream);
 }

@@ -10,14 +10,9 @@
 #include "Log.h"
 
 
-
-static EEPROMStorage *pStorage;
-
 class Informer {
 public:
-    Informer(EEPROMStorage &storage, Log &log) : storage(storage), log(log) {
-        pStorage = &this->storage;
-    }
+    Informer(EEPROMStorage &storage, Log &log) : storage(storage), log(log) {}
     void loop();
     ErrorCode inform();
     ErrorCode proceeded();
@@ -26,8 +21,6 @@ public:
     void setInformFormat(Format value);
     uint32_t getInformInterval();
     Format getInformFormat();
-    void writeInformOrder(Stream &stream);
-    void writeInformCoefficients(Stream &stream);
 private:
     bool packetSent = false;
     EEPROMStorage &storage;

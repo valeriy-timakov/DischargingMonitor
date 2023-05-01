@@ -53,6 +53,14 @@ private:
     bool readBinaryCommand();
 
     void processBinaryInstruction();
+
+    ErrorCode processBinaryRead(uint8_t code);
+    ErrorCode processBinarySet(uint8_t code);
+    ErrorCode processBinaryExecute(uint8_t code);
+    uint8_t getByteFromData();
+    uint16_t getShortFromData();
+    uint32_t getIntFromData();
+    uint64_t getLongFromData();
 };
 
 

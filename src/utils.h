@@ -7,6 +7,20 @@
 
 #include "Communicator.h"
 
+
+
+size_t sendSerial(bool value, Stream &serial = Serial);
+size_t sendSerial(InstructionCode value, Stream &serial = Serial);
+size_t sendSerial(InstructionDataCode value, Stream &serial = Serial);
+size_t sendSerial(ErrorCode buffer, Stream &serial = Serial);
+size_t sendSerial(Format value, Stream &serial = Serial);
+size_t sendSerial(uint8_t value, Stream &serial = Serial);
+size_t sendSerial(uint16_t value, Stream &serial = Serial);
+size_t sendSerial(uint32_t value, Stream &serial = Serial);
+size_t sendSerial(uint64_t value, Stream &serial = Serial);
+size_t sendSerial(const uint8_t *buffer, size_t size, Stream &serial = Serial);
+size_t sendSerial(const char *buffer, Stream &serial = Serial);
+
 uint32_t atoi(const char* str, int len);
 
 template<typename T>

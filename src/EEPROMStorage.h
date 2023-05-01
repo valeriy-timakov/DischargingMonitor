@@ -35,6 +35,10 @@ public:
     void add(uint32_t lastTimestamp);
     void startNew(Data &data);
     bool isNearOverflow() const;
+
+    uint32_t getAvgPeriodStart() const;
+
+    uint32_t getAvgPeriodEnd() const;
 };
 
 class EEPROMStorage {
@@ -64,21 +68,22 @@ public:
     void loop();
     void add(Data &currData);
     const Data& getLast();
-    void enumerate(void (*consume)(Data &));
+    void printNextSavedDataPage(Stream &stream);
+    void writeNextSavedDataPage(Stream &stream);
 
 
     static const uint16_t PAGES_COUNT = 512;
     void init();
-    const uint8_t *getBuffer();
-    static uint16_t getBufferSize();
     bool prepareData();
     void dataProcessed();
     void setDataPermissibleVariation(CompareConfigIdx cci, uint8_t value);
     uint8_t getDataPermissibleVariation(CompareConfigIdx cci);
     uint32_t getLastPreparedTimestamp();
     uint32_t getLastSavedTimestamp();
-
     void printState(Stream &stream);
+    void writeState(Stream &stream);
+    void printNotSaved(Stream &stream) const;
+    void writeNotSaved(Stream &stream) const;
 };
 
 

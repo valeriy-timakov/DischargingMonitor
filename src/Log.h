@@ -43,6 +43,7 @@ struct LogRegData {
 struct LogBuffer {
 public:
     void print(Stream &stream) const;
+    void write(Stream &stream) const;
     LogBuffer() : pos(0) {}
     void addIfAny(uint32_t registerValue, uint16_t cycle);
 
