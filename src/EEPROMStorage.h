@@ -35,10 +35,6 @@ public:
     void add(uint32_t lastTimestamp);
     void startNew(Data &data);
     bool isNearOverflow() const;
-
-    uint32_t getAvgPeriodStart() const;
-
-    uint32_t getAvgPeriodEnd() const;
 };
 
 class EEPROMStorage {

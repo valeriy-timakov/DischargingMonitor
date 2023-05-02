@@ -185,7 +185,7 @@ void EEPROMStorage::printState(Stream &stream) {
     if (avgData.notStarted()) {
         stream.print(0);
     } else {
-        stream.print(avg);
+        stream.print(avgData.getAvgPeriod());
     }
 
 }
@@ -317,12 +317,4 @@ Data IntergalData::getAvgData(bool start) const {
 bool IntergalData::isNearOverflow() const {
     return MAX_U32_VALUE - lastAddedVoltage * kV < voltageIntegralSum ||
         MAX_U32_VALUE - lastAddedCurrent * kC < currentIntegralSum;
-}
-
-uint32_t IntergalData::getAvgPeriodStart() const {
-    return avgPeriodStart;
-}
-
-uint32_t IntergalData::getAvgPeriodEnd() const {
-    return avgPeriodEnd;
 }
