@@ -77,17 +77,17 @@ void dbgData(Data &data) {
     Serial.println(")");
 }
 
-uint32_t atoi(const char* str, int len) {
-    uint32_t ret = 0;
+bool atou(const char* str, int len, uint32_t &result){
+    result = 0;
     uint8_t charValue;
     for(int i = 0; i < len; ++i) {
         charValue = str[i] - '0';
         if (charValue > 9) {
-            return -1;
+            return false;
         }
-        ret = ret * 10 + charValue;
+        result = result * 10 + charValue;
     }
-    return ret;
+    return true;
 }
 
 uint8_t getNext(uint8_t pos, uint8_t last, uint8_t size) {

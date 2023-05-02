@@ -22,6 +22,8 @@
 #define COMMAND_WITHOUT_ADDR_START_CHAR '['
 #define COMMAND_WITHOUT_ADDR_END_CHAR ']'
 
+static const int MAX_COMMAND_READ_TIME = 1000;
+
 class Communicator {
 public:
     Communicator(Informer &informer, Reader &reader, EEPROMStorage &storage, Log &log, TimeKeeper &timeKeeper) :
@@ -35,6 +37,8 @@ private:
     bool commandWithAddress;
     Format format = F_TEXT;
     bool formatChanged = false;
+    uint32_t lastPacketTime = 0;
+    uint8_t lastPacketSize = 0;
     Informer &informer;
     Reader &reader;
     EEPROMStorage &storage;
@@ -46,7 +50,9 @@ private:
     void processTextInstruction();
     size_t getData(char **res);
     void processIntValue(ErrorCode (*processor)(Communicator *self, uint32_t));
+    void sendAnswer(char answerCodeChar, void (*writer)(Communicator *self, Stream &stream, void *additionalData), void *additionalData = nullptr);
     void sendAnswer(char answerCodeChar, void (*writer)(Communicator *self, Stream &stream));
+    void sendAnswer(char answerCodeChar);
     void sendSuccess();
     void sendError(ErrorCode  code);
 
@@ -61,6 +67,10 @@ private:
     uint16_t getShortFromData();
     uint32_t getIntFromData();
     uint64_t getLongFromData();
+
+    void startAnswer(char answerCodeChar) const;
+
+    void endAnswer() const;
 };
 
 

@@ -21,7 +21,7 @@ size_t sendSerial(uint64_t value, Stream &serial = Serial);
 size_t sendSerial(const uint8_t *buffer, size_t size, Stream &serial = Serial);
 size_t sendSerial(const char *buffer, Stream &serial = Serial);
 
-uint32_t atoi(const char* str, int len);
+bool atou(const char* str, int len, uint32_t &result);
 
 template<typename T>
 void shift(T *data, uint8_t last, uint8_t size);

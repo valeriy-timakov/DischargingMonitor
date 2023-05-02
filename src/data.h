@@ -59,6 +59,7 @@ enum ErrorCode {
     E_WRITE_MAX_ATTEMPTS_EXCEDED = 17,
     E_ROUNDING_DATA_ADD_WRONG_TIME = 18,
     E_UNDEFINED_OPERATION = 19,
+    E_PAGE_NOT_READY = 20,
     E_UNDEFINED_CODE = 100
 };
 
@@ -67,7 +68,6 @@ enum InstructionCode {
     IC_READ = 1,
     IC_SET = 2,
     IC_EXECUTE = 3,
-    IC_INFORM = 4,
     IC_SUCCESS = 5,
     IC_ERROR = 6,
     IC_FORMAT_CHANGED = 7,
@@ -94,7 +94,9 @@ enum InstructionDataCode {
     IDC_EXTERNAL_TIMESTAMP_ID = 15,
     IDC_STORAGE_STAGE_DUMP = 16,
     IDC_NOT_SAVED_DATA = 17,
-    IDC_UNKNOWN = 20
+    IDC_DATA_PAGE = 18,
+    IDC_INFORM = 19,
+    IDC_UNKNOWN = 30
 };
 
 enum InstructionOperation {

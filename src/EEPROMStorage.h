@@ -64,8 +64,8 @@ public:
     void loop();
     void add(Data &currData);
     const Data& getLast();
-    void printNextSavedDataPage(Stream &stream);
-    void writeNextSavedDataPage(Stream &stream);
+    void printNextSavedDataPage(Stream &stream, char commandChar);
+    void writeNextSavedDataPage(Stream &stream, InstructionDataCode code);
 
 
     static const uint16_t PAGES_COUNT = 512;
@@ -80,6 +80,7 @@ public:
     void writeState(Stream &stream);
     void printNotSaved(Stream &stream) const;
     void writeNotSaved(Stream &stream) const;
+    bool loadPage(uint16_t page, bool forceNotExisted);
 };
 
 

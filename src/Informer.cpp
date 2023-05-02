@@ -7,7 +7,6 @@
 
 void Informer::loop() {
     if (informInterval > 0 && ( (millis() - lastInformTime) >= informInterval ) && !packetSent) {
-        Serial.println("Informer::loop");
         inform();
         log.log(LB_INFORM_STARTED);
         lastInformTime = millis();
@@ -15,22 +14,18 @@ void Informer::loop() {
 }
 
 ErrorCode Informer::inform() {
-    Serial.println("Informer::inform");
     if (packetSent) {
-        Serial.println("E_INFORM_PACKAGE_ALREADY_SENT");
         return E_INFORM_PACKAGE_ALREADY_SENT;
     }
     if (storage.prepareData()) {
-        Serial.println("prepareData");
         if (informFormat == F_TEXT) {
-            storage.printNextSavedDataPage(Serial);
+            storage.printNextSavedDataPage(Serial, 'I');
         } else {
-            storage.writeNextSavedDataPage(Serial);
+            storage.writeNextSavedDataPage(Serial, IDC_INFORM);
         }
         packetSent = true;
         return OK;
     }
-    Serial.println("E_INFORM_NO_DATA_TO_SEND");
     return E_INFORM_NO_DATA_TO_SEND;
 }
 

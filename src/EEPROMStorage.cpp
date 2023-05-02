@@ -118,16 +118,16 @@ bool EEPROMStorage::prepareData() {
     return false;
 }
 
-void EEPROMStorage::printNextSavedDataPage(Stream &stream) {
-    Serial.print("(");
-    Serial.print('I');
+void EEPROMStorage::printNextSavedDataPage(Stream &stream, char commandChar) {
+    Serial.print('(');
+    Serial.print(commandChar);
     for (uint16_t i = 0; i < DATA_COUNT_IN_PAGE; i++) {
         Reader::printData(saveBuffer[i], stream);
     }
-    Serial.println(")");
+    Serial.println(')');
 }
 
-void EEPROMStorage::writeNextSavedDataPage(Stream &stream) {
+void EEPROMStorage::writeNextSavedDataPage(Stream &stream, InstructionDataCode code) {
     uint16_t hash = 0;
     for (uint16_t i = 0; i < PAGE_BUFFER_SIZE_BYTES - 1; i += 2) {
         hash += pageBuffer[i] + ( pageBuffer[i + 1] << 8 );
@@ -135,12 +135,12 @@ void EEPROMStorage::writeNextSavedDataPage(Stream &stream) {
     if ((PAGE_BUFFER_SIZE_BYTES - 1) % 2 == 0) {
         hash += pageBuffer[PAGE_BUFFER_SIZE_BYTES - 1] << 8;
     }
-    sendSerial(IC_NONE);
-    sendSerial(IC_INFORM);
-    sendSerial(PAGE_BUFFER_SIZE_BYTES);
-    sendSerial(hash);
-    sendSerial(pageBuffer, PAGE_BUFFER_SIZE_BYTES);
-    sendSerial(IC_NONE);
+    sendSerial(IC_NONE, stream);
+    sendSerial(code, stream);
+    sendSerial(PAGE_BUFFER_SIZE_BYTES, stream);
+    sendSerial(hash, stream);
+    sendSerial(pageBuffer, PAGE_BUFFER_SIZE_BYTES, stream);
+    sendSerial(IC_NONE, stream);
 }
 
 void EEPROMStorage::dataProcessed() {
@@ -250,6 +250,13 @@ void EEPROMStorage::writeNotSaved(Stream &stream) const {
     }
 }
 
+bool EEPROMStorage::loadPage(uint16_t page, bool forceNotExisted) {
+    if (page < nextPageToSave || eepromOverflow || forceNotExisted) {
+        EEPROM.readData(page * PAGE_BUFFER_SIZE_BYTES, pageBuffer, PAGE_BUFFER_SIZE_BYTES);
+        return true;
+    }
+    return false;
+}
 
 
 bool IntergalData::notStarted() const {
