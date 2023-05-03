@@ -224,7 +224,7 @@ void Communicator::processTextInstruction() {
                         uint8_t force = (uint8_t) (value >> 16);
                         uint16_t page = (uint16_t) value;
                         if (self->storage.loadPage(page, (bool)force)) {
-                            self->storage.printNextSavedDataPage(stream, 'e');
+                            self->storage.printNextSavedDataPage(stream);
                         } else {
                             self->sendError(E_PAGE_NOT_READY);
                         }
@@ -275,12 +275,17 @@ void Communicator::processTextInstruction() {
                 }
             }
         } else if (instrFirst == 'f') {
-            processIntValue([](Communicator *self, uint32_t value) {
-                self->format = value == 0 ? F_TEXT : F_BINARY;
-                self->formatChanged = true;
-                self->informer.setInformFormat(self->format);
-                return OK;
-            });
+            if (instrSecond == 't') {
+                format = F_TEXT;
+            } else if (instrSecond == 'b') {
+                format = F_BINARY;
+            } else {
+                proceeded = false;
+            }
+            if (proceeded) {
+                formatChanged = true;
+                informer.setInformFormat(format);
+            }
         }
     }
     if (!proceeded) {

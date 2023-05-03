@@ -19,7 +19,9 @@ ErrorCode Informer::inform() {
     }
     if (storage.prepareData()) {
         if (informFormat == F_TEXT) {
-            storage.printNextSavedDataPage(Serial, 'I');
+            Serial.print('[I');
+            storage.printNextSavedDataPage(Serial);
+            Serial.println(']');
         } else {
             storage.writeNextSavedDataPage(Serial, IDC_INFORM);
         }

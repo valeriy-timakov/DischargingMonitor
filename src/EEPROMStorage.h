@@ -64,7 +64,7 @@ public:
     void loop();
     void add(Data &currData);
     const Data& getLast();
-    void printNextSavedDataPage(Stream &stream, char commandChar);
+    void printNextSavedDataPage(Stream &stream);
     void writeNextSavedDataPage(Stream &stream, InstructionDataCode code);
 
 

@@ -118,13 +118,10 @@ bool EEPROMStorage::prepareData() {
     return false;
 }
 
-void EEPROMStorage::printNextSavedDataPage(Stream &stream, char commandChar) {
-    Serial.print('(');
-    Serial.print(commandChar);
+void EEPROMStorage::printNextSavedDataPage(Stream &stream) {
     for (uint16_t i = 0; i < DATA_COUNT_IN_PAGE; i++) {
-        Reader::printData(saveBuffer[i], stream);
+        Reader::printData(((Data*)pageBuffer)[i], stream);
     }
-    Serial.println(')');
 }
 
 void EEPROMStorage::writeNextSavedDataPage(Stream &stream, InstructionDataCode code) {
