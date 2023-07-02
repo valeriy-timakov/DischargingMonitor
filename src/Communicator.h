@@ -22,7 +22,7 @@
 #define COMMAND_WITHOUT_ADDR_START_CHAR '['
 #define COMMAND_WITHOUT_ADDR_END_CHAR ']'
 
-static const int MAX_COMMAND_READ_TIME = 1000;
+static const int MAX_COMMAND_READ_TIME = 100;
 
 class Communicator {
 public:
@@ -57,7 +57,6 @@ private:
     void sendError(ErrorCode  code);
 
     bool readBinaryCommand();
-
     void processBinaryInstruction();
 
     ErrorCode processBinaryRead(uint8_t code);

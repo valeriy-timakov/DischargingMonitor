@@ -286,6 +286,8 @@ void Communicator::processTextInstruction() {
                 formatChanged = true;
                 informer.setInformFormat(format);
             }
+        } else {
+            proceeded = false;
         }
     }
     if (!proceeded) {
@@ -370,20 +372,40 @@ void Communicator::startAnswer(char answerCodeChar) const {
     Serial.print(answerCodeChar);
 }
 
+void clearSerial() {
+    while (Serial.available()) {
+        Serial.read();
+    }
+}
+
 bool Communicator::readBinaryCommand() {
     uint8_t available = Serial.available();
     if (!available) {
         return false;
     }
-
+    Serial.print("Data available: " );
+    Serial.println(available);
+    Serial.print(lastPacketSize);
+    Serial.print("/" );
+    Serial.println(lastPacketTime);
     uint32_t currTime = (uint32_t) millis();
-    bool commandReady = available - lastPacketSize == 0 || (currTime - lastPacketTime) > MAX_COMMAND_READ_TIME;
+    bool commandReady = lastPacketSize > 0 && ( (available - lastPacketSize) == 0 || (currTime - lastPacketTime) > MAX_COMMAND_READ_TIME );
     lastPacketSize = available;
     lastPacketTime = currTime;
+    Serial.print("a: " );
+    Serial.print(lastPacketSize);
+    Serial.print("/" );
+    Serial.println(lastPacketTime);
     if (!commandReady) {
         return false;
     }
-    if (Serial.read() != IC_NONE) {
+    lastPacketSize = 0;
+    Serial.println("Command ready");
+    int r = Serial.read();
+    if (r != IC_NONE) {
+        Serial.print("Wrong start byte: ");
+        Serial.println(r);
+        clearSerial();
         sendSerial(IC_NONE);
         sendSerial(IC_ERROR);
         sendSerial(E_INSTRUCTION_WRONG_START);
@@ -393,13 +415,15 @@ bool Communicator::readBinaryCommand() {
     commandParsed = false;
     available = Serial.available();
     if (available == 0) {
+        Serial.println("No data available");
         sendSerial(IC_NONE);
         sendSerial(IC_ERROR);
         sendSerial(E_COMMAND_EMPTY);
         return false;
     }
     if (available > CMD_BUFF_SIZE) {
-        while (Serial.available()) Serial.read();
+        Serial.println("Command size overflow");
+        clearSerial();
         sendSerial(IC_NONE);
         sendSerial(IC_ERROR);
         sendSerial(E_COMMAND_SIZE_OVERFLOW);
@@ -420,6 +444,7 @@ bool Communicator::readBinaryCommand() {
         sendSerial(E_INSTRUCTION_UNRECOGIZED);
         return false;
     }
+    Serial.println("Command processed");
     commandParsed = true;
     return true;
 }
@@ -435,7 +460,7 @@ void Communicator::processBinaryInstruction() {
         case IC_SET:
             if (curCmdBuffPos < 3) {
                 result = E_REQUEST_DATA_NO_VALUE;
-                return;
+                break;
             }
             result = processBinarySet(instrCode);
             if (result == OK) {
